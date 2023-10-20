@@ -8,7 +8,7 @@
 glm::vec3 elementWiseMin(const glm::vec3 a, const glm::vec3 b);
 
 //Calculates element wise maximum of vectors a and b
-glm::vec3 elementWiseMax(const glm::vec3 a, const glm::vec3 b)
+glm::vec3 elementWiseMax(const glm::vec3 a, const glm::vec3 b);
 
 //Calculates element wise minimum of 3 vectors
 glm::vec3 minOfThree (const glm::vec3 a, const glm::vec3 b, const glm::vec3 c);
