@@ -3,6 +3,19 @@
 #include <framework/ray.h>
 #include <vector>
 
+
+//Calculates element wise minimum of vectors a and b
+glm::vec3 elementWiseMin(const glm::vec3 a, const glm::vec3 b);
+
+//Calculates element wise maximum of vectors a and b
+glm::vec3 elementWiseMax(const glm::vec3 a, const glm::vec3 b)
+
+//Calculates element wise minimum of 3 vectors
+glm::vec3 minOfThree (const glm::vec3 a, const glm::vec3 b, const glm::vec3 c);
+
+//Calculates element wise maximum of 3 vectors
+glm::vec3 maxOfThree(const glm::vec3 a, const glm::vec3 b, const glm::vec3 c);
+
 // TODO: Standard feature
 // Given a BVH triangle, compute an axis-aligned bounding box around the primitive
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'

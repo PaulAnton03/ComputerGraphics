@@ -1,17 +1,16 @@
 #include "bvh.h"
 #include "draw.h"
+#include "extra.h"
 #include "interpolate.h"
 #include "intersect.h"
 #include "render.h"
 #include "scene.h"
-#include "extra.h"
 #include "texture.h"
 #include <algorithm>
 #include <bit>
 #include <chrono>
 #include <framework/opengl_includes.h>
 #include <iostream>
-
 
 // Helper method to fill in hitInfo object. This can be safely ignored (or extended).
 // Note: many of the functions in this helper tie in to standard/extra features you will have
@@ -102,24 +101,65 @@ uint32_t BVH::nextNodeIdx()
     return idx;
 }
 
-// TODO: Standard feature
+glm::vec3 elementWiseMin(const glm::vec3 a, const glm::vec3 b) {
+    return {glm::min(a.x, b.x), glm::min(a.y, b.y), glm::min(a.z, b.z)};
+}
+
+glm::vec3 elementWiseMax(const glm::vec3 a, const glm::vec3 b) {
+    return {glm::max(a.x, b.x), glm::max(a.y, b.y), glm::max(a.z, b.z)};
+}
+
+glm::vec3 minOfThree (const glm::vec3 a, const glm::vec3 b, const glm::vec3 c) {
+    return elementWiseMin(a, elementWiseMin(b, c));
+}
+
+glm::vec3 maxOfThree(const glm::vec3 a, const glm::vec3 b, const glm::vec3 c) {
+    return elementWiseMax(a, elementWiseMax(b, c));
+}
+
+glm::vec3 minOfList(const std::vector<const glm::vec3>& list)
+{
+    return std::reduce(list.begin(), list.end(), glm::vec3(std::numeric_limits<float>::max()),
+        [&] (const glm::vec3& a, const glm::vec3& b) {
+        return elementWiseMin(a, b);
+    });
+}
+
+glm::vec3 maxOfList(const std::vector<const glm::vec3>& list)
+{
+    return std::reduce(list.begin(), list.end(), glm::vec3(std::numeric_limits<float>::min()),
+        [&] (const glm::vec3& a, const glm::vec3& b) {
+        return elementWiseMax(a, b);
+    });
+}
+
+// DONE: Standard feature
 // Given a BVH triangle, compute an axis-aligned bounding box around the primitive
 // - primitive; a single triangle to be stored in the BVH
 // - return;    an axis-aligned bounding box around the triangle
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
 {
-    return { .lower = glm::vec3(0), .upper = glm::vec3(0) };
+    return { .lower = minOfThree(primitive.v0.position, primitive.v1.position, primitive.v2.position),
+        .upper = maxOfThree(primitive.v0.position, primitive.v1.position, primitive.v2.position)};
 }
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given a range of BVH triangles, compute an axis-aligned bounding box around the range.
 // - primitive; a contiguous range of triangles to be stored in the BVH
 // - return;    a single axis-aligned bounding box around the entire set of triangles
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitives)
 {
-    return { .lower = glm::vec3(0), .upper = glm::vec3(0) };
+    glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
+    glm::vec3 max = glm::vec3(std::numeric_limits<float>::min());
+    for (BVHInterface::Primitive p : primitives)
+    {
+       min = elementWiseMin(minOfThree(p.v0.position, p.v1.position, p.v2.position), min);
+       max = elementWiseMax(maxOfThree(p.v0.position, p.v1.position, p.v2.position), max);
+    }
+
+    return { .lower = min, .upper = max};
 }
 
 // TODO: Standard feature
@@ -145,7 +185,7 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb)
 
 // TODO: Standard feature
 // Given a range of BVH triangles, sort these along a specified axis based on their geometric centroid.
-// Then, find and return the split index in the range, such that the subrange containing the first element 
+// Then, find and return the split index in the range, such that the subrange containing the first element
 // of the list is at least as big as the other, and both differ at most by one element in size.
 // Hint: you should probably reuse `computePrimitiveCentroid()`
 // - aabb;       the axis-aligned bounding box around the given triangle range
