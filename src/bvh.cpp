@@ -302,6 +302,9 @@ BVH::Node BVH::buildLeafData(const Scene& scene, const Features& features, const
     Node node;
     // TODO fill in the leaf's data; refer to `bvh_interface.h` for details
 
+    node.aabb = aabb;
+    node.data = { Node::LeafBit | static_cast<uint32_t>(m_primitives.size()), static_cast<uint32_t>(primitives.size()) };
+
     // Copy the current set of primitives to the back of the primitives vector
     std::copy(primitives.begin(), primitives.end(), std::back_inserter(m_primitives));
 
@@ -320,6 +323,10 @@ BVH::Node BVH::buildLeafData(const Scene& scene, const Features& features, const
 BVH::Node BVH::buildNodeData(const Scene& scene, const Features& features, const AxisAlignedBox& aabb, uint32_t leftChildIndex, uint32_t rightChildIndex)
 {
     Node node;
+
+    node.aabb = aabb;
+    node.data = { Node::LeafBit | leftChildIndex, rightChildIndex};
+
     // TODO fill in the node's data; refer to `bvh_interface.h` for details
     return node;
 }
