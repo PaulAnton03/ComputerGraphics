@@ -73,7 +73,11 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 {
     // TODO: generate a mirrored ray
     //       if you use glm::reflect, you will not get points for this method!
-    return Ray {};
+    glm::vec3 originalDir = glm::normalize(-ray.direction);
+    glm::vec3 n = glm::normalize(hitInfo.normal);
+    glm::vec3 newDir = glm::normalize(-originalDir + 2 * glm::dot(originalDir, n) * n);
+    Ray res = { ray.origin + ray.direction * ray.t, newDir, std::numeric_limits<float>::max() };
+    return res;
 }
 
 // TODO: Standard feature
@@ -104,6 +108,8 @@ void renderRaySpecularComponent(RenderState& state, Ray ray, const HitInfo& hitI
     // TODO; you should first implement generateReflectionRay()
     Ray r = generateReflectionRay(ray, hitInfo);
     // ...
+    glm::vec3 c = renderRay(state, r, rayDepth + 1);
+    hitColor += c * hitInfo.material.ks;
 }
 
 // TODO: standard feature
