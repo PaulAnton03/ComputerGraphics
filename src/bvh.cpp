@@ -197,7 +197,7 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb)
         return 2;
 }
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given a range of BVH triangles, sort these along a specified axis based on their geometric centroid.
 // Then, find and return the split index in the range, such that the subrange containing the first element
 // of the list is at least as big as the other, and both differ at most by one element in size.
@@ -211,7 +211,18 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
 {
     using Primitive = BVHInterface::Primitive;
 
-    return 0; // This is clearly not the solution
+    if(primitives.empty())
+        return 0;
+//    std::vector<float> centroidsAlongAxis;
+//    for (const Primitive &p : primitives) {
+//         centroidsAlongAxis.push_back((axis == 0) ? computePrimitiveCentroid(p).x :
+//                (axis == 1) ? computePrimitiveCentroid(p).y : computePrimitiveCentroid(p).z);
+//    }
+    sort(primitives.begin(), primitives.end(), [&](const Primitive &a, const Primitive &b) {
+        return (axis == 0) ? computePrimitiveCentroid(a).x < computePrimitiveCentroid(b).x :
+               (axis == 1) ? computePrimitiveCentroid(a).y < computePrimitiveCentroid(b).y :
+               computePrimitiveCentroid(a).z < computePrimitiveCentroid(b).z; });
+    return (primitives.size() + 1) / 2;
 }
 
 // TODO: Standard feature
@@ -359,7 +370,6 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
 // TODO: Standard feature, or part of it
 // Compute the nr. of levels in your hierarchy after construction; useful for `debugDrawLevel()`
-// You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLevels()
 {
     m_numLevels = 1;
