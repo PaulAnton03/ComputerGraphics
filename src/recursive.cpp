@@ -89,8 +89,9 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 // This method is unit-tested, so do not change the function signature.
 Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 {
+    Ray res = { ray.origin + ray.direction * ray.t, ray.direction, std::numeric_limits<float>::max() };
     // TODO: generate a passthrough ray
-    return Ray {};
+    return res;
 }
 
 // TODO: standard feature
@@ -126,5 +127,7 @@ void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& h
 {
     // TODO; you should first implement generatePassthroughRay()
     Ray r = generatePassthroughRay(ray, hitInfo);
+    glm::vec3 c = renderRay(state, r, rayDepth + 1);
+    hitColor = hitColor * hitInfo.material.transparency+ c * (1-hitInfo.material.transparency);
     // ...
 }
