@@ -123,21 +123,6 @@ glm::vec3 maxOfThree(const glm::vec3 a, const glm::vec3 b, const glm::vec3 c)
     return elementWiseMax(a, elementWiseMax(b, c));
     }
 
-glm::vec3 minOfList(const std::vector<const glm::vec3>& list)
-{
-    return std::reduce(list.begin(), list.end(), glm::vec3(std::numeric_limits<float>::max()),
-        [&](const glm::vec3& a, const glm::vec3& b) {
-            return elementWiseMin(a, b);
-        });
-}
-
-glm::vec3 maxOfList(const std::vector<const glm::vec3>& list)
-{
-    return std::reduce(list.begin(), list.end(), glm::vec3(std::numeric_limits<float>::min()),
-        [&](const glm::vec3& a, const glm::vec3& b) {
-            return elementWiseMax(a, b);
-        });
-}
 
 // DONE: Standard feature
 // Given a BVH triangle, compute an axis-aligned bounding box around the primitive
