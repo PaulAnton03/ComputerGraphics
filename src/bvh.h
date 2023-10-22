@@ -76,6 +76,7 @@ private: // Private members
     uint32_t m_numLeaves;
     std::vector<Node> m_nodes;
     std::vector<Primitive> m_primitives;
+    std::vector<glm::vec3> leafNodes;
 
 private: // Private methods
     // Helper method; simply allocates a new node, and returns its index
