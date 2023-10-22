@@ -86,6 +86,9 @@ std::vector<Ray> generatePixelRaysMultisampled(RenderState& state, const Trackba
     auto numSamples = state.features.numPixelSamples;
     std::vector<Ray> rays;
     // ...
+    for (int i = 0; i < numSamples; i++) {
+        rays.push_back(camera.generateRay((glm::vec2(pixel) + state.sampler.next_2d()) / glm::vec2(screenResolution) * 2.f - 1.f));
+    }
     return rays;
 }
 
@@ -106,6 +109,10 @@ std::vector<Ray> generatePixelRaysStratified(RenderState& state, const Trackball
     // Hint; use `state.sampler.next*d()` to generate random samples in [0, 1).
     auto numSamples = static_cast<uint32_t>(std::round(std::sqrt(float(state.features.numPixelSamples))));
     std::vector<Ray> rays;
-    // ...
+    for (int p = 0; p < numSamples; p++) {
+        for (int q = 0; q < numSamples; q++) {
+            rays.push_back(camera.generateRay((glm::vec2(pixel) + (glm::vec2{p,q} + state.sampler.next_2d())/(float)numSamples) / glm::vec2(screenResolution) * 2.f - 1.f));
+        }
+    }
     return rays;
 }
