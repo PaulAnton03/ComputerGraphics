@@ -16,31 +16,31 @@ glm::vec3 minOfThree (const glm::vec3 a, const glm::vec3 b, const glm::vec3 c);
 //Calculates element wise maximum of 3 vectors
 glm::vec3 maxOfThree(const glm::vec3 a, const glm::vec3 b, const glm::vec3 c);
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given a BVH triangle, compute an axis-aligned bounding box around the primitive
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive);
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given a range of BVH triangles, compute an axis-aligned bounding box around the range.
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitives);
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given a BVH triangle, compute the geometric centroid of the triangle
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computePrimitiveCentroid(const BVHInterface::Primitive primitive);
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given an axis-aligned bounding box, compute the longest axis as (x = 0, y = 1, z = 2)
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb);
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Given a range of BVH triangles, sort these along a specified axis based on their geometric centroid.
 // Then, find and return the split index in the range, such that the subrange containing the first element 
 // of the list is at least as big as the other, and both differ at most by one element in size.
@@ -48,7 +48,7 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb);
 // This method is unit-tested, so do not change the function signature.
 size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives);
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Hierarchy traversal routine; called by the BVH's intersect(), you must implement this method.
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
@@ -82,14 +82,14 @@ private: // Private methods
     // Helper method; simply allocates a new node, and returns its index
     uint32_t nextNodeIdx();
 
-    // TODO: Standard feature
+    // DONE: Standard feature
     // Helper functions to instantiate Node objects as either parent nodes with children, or as leaf nodes
     // For a description of either method's arguments, refer to 'bounding_volume_hierarchy.cpp'
     // Note: you are free to modify these function's signatures, as long as the constructor builds a BVH
     Node buildLeafData(const Scene& scene, const Features& features, const AxisAlignedBox& aabb, std::span<Primitive> primitives);
     Node buildNodeData(const Scene& scene, const Features& features, const AxisAlignedBox& aabb, uint32_t leftChildIndex, uint32_t rightChildIndex);
 
-    // TODO: Standard feature
+    // DONE: Standard feature
     // Hierarchy construction routine; called by the BVH's constructor, you must implement this method.
     // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
     // Note: you are free to modify this function's signature, as long as the constructor builds a BVH

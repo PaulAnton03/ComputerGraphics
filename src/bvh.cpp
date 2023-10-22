@@ -273,11 +273,11 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         // Note that it is entirely possible for a ray to hit a leaf node, but not its primitives,
         // and it is likewise possible for a ray to hit both children of a node.
 
-        std::stack<uint32_t> nodeStack;
-        nodeStack.push(0);
-        while(!nodeStack.empty()) {
-            const BVHInterface::Node& node = nodes[nodeStack.top()];
-            nodeStack.pop();
+        std::stack<uint32_t> stack;
+        stack.push(0);
+        while(!stack.empty()) {
+            const BVHInterface::Node& node = nodes[stack.top()];
+            stack.pop();
             float t = ray.t;
             if (intersectRayWithShape(node.aabb, ray)) {
                 ray.t = t;
@@ -290,8 +290,8 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
                         }
                     }
                 } else {
-                    nodeStack.push(node.leftChild());
-                    nodeStack.push(node.rightChild());
+                    stack.push(node.leftChild());
+                    stack.push(node.rightChild());
                 }
             }
         }
@@ -356,7 +356,7 @@ BVH::Node BVH::buildNodeData(const Scene& scene, const Features& features, const
     return node;
 }
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Hierarchy construction routine; called by the BVH's constructor,
 // you must implement this method and implement it carefully!
 //
@@ -396,31 +396,27 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     //    3d. Recursively build left/right child nodes over their respective triangles
     //        (hint; use `std::span::subspan()` to split into left/right ranges)
 
+    //TODO: Extra feature SAH-Binning
+
     if(primitives.size() <= LeafSize) {
         m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
         return;
     }
 
-    uint32_t axis = computeAABBLongestAxis(aabb);
-    size_t splitIndex = splitPrimitivesByMedian(aabb, axis, primitives);
+    const uint32_t axis = computeAABBLongestAxis(aabb);
+    const auto splitIndex = splitPrimitivesByMedian(aabb, axis, primitives);
 
     std::span<Primitive> leftPrimitives = primitives.subspan(0, splitIndex);
     std::span<Primitive> rightPrimitives = primitives.subspan(splitIndex, primitives.size() - splitIndex);
 
-    uint32_t leftIdx = nextNodeIdx();
+    const uint32_t leftIdx = nextNodeIdx();
 
-    uint32_t rightIdx = nextNodeIdx();
+    const uint32_t rightIdx = nextNodeIdx();
 
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftIdx, rightIdx);
 
     buildRecursive(scene, features, leftPrimitives, leftIdx);
     buildRecursive(scene, features, rightPrimitives, rightIdx);
-//    std::cout << m_nodes.size() << std::endl;
-
-
-
-    // Just configure the current node as a giant leaf for now
-//    m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
 }
 
 // DONE: Standard feature, or part of it
@@ -434,23 +430,13 @@ void BVH::buildNumLevels()
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLeaves()
 {
-    if(m_primitives.empty()) m_numLeaves = 0;
+    if(m_nodes.empty() || m_primitives.empty()) m_numLeaves = 0;
     m_numLeaves = 0;
 
     for(uint32_t i = RootIndex; i < m_nodes.size(); i++) {
         if(m_nodes[i].isLeaf()) m_numLeaves++;
     }
 
-//    else if(m_primitives.size() < 5) m_numLeaves = 1;
-//    else {
-//        auto s = static_cast<uint32_t>(m_primitives.size());
-//        float log = glm::log2((float) m_primitives.size() );
-//        auto a = 2 ^ static_cast<uint32_t>(glm::ceil(log));
-//        auto b = 2 ^ static_cast<uint32_t>(glm::floor(log));
-//
-//        m_numLeaves = (b/4) + std::min(s - b, (a - b) / 4);
-//
-//    }
 }
 
 // Draw the bounding boxes of the nodes at the selected level. Use this function to visualize nodes
@@ -487,10 +473,6 @@ void BVH::debugDrawLevel(int level)
         drawAABB(m_nodes[curQueue.front()].aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
         curQueue.pop();
     }
-
-
-//    AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
-//    drawAABB(aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
 }
 
 // Draw data of the leaf at the selected index. Use this function to visualize leaf nodes
@@ -503,7 +485,6 @@ void BVH::debugDrawLeaf(int leafIndex)
 {
     // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use drawTriangle (see `draw.h`) to draw the contained primitives
-//    AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
     if (leafIndex < 0 || leafIndex > m_numLeaves) return;
     int j = 0;
     uint32_t ind = 0;
