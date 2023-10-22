@@ -12,6 +12,7 @@
 #include <framework/opengl_includes.h>
 #include <iostream>
 #include <queue>
+#include <stack>
 
 // Helper method to fill in hitInfo object. This can be safely ignored (or extended).
 // Note: many of the functions in this helper tie in to standard/extra features you will have
@@ -226,7 +227,7 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
     return (primitives.size() + 1) / 2;
 }
 
-// TODO: Standard feature
+// DONE: Standard feature
 // Hierarchy traversal routine; called by the BVH's intersect(),
 // you must implement this method and implement it carefully!
 //
@@ -255,7 +256,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     bool is_hit = false;
 
     if (state.features.enableAccelStructure) {
-        // TODO: implement here your (probably stack-based) BVH traversal.
+        // DONE: implement here your (probably stack-based) BVH traversal.
         //
         // Some hints (refer to bvh_interface.h either way). BVH nodes are packed, so the
         // data is not easily extracted. Helper methods are available, however:
@@ -271,6 +272,31 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         //
         // Note that it is entirely possible for a ray to hit a leaf node, but not its primitives,
         // and it is likewise possible for a ray to hit both children of a node.
+
+        std::stack<uint32_t> nodeStack;
+        nodeStack.push(0);
+        while(!nodeStack.empty()) {
+            const BVHInterface::Node& node = nodes[nodeStack.top()];
+            nodeStack.pop();
+            float t = ray.t;
+            if (intersectRayWithShape(node.aabb, ray)) {
+                ray.t = t;
+                if (node.isLeaf()) {
+                    for (uint32_t i = node.primitiveOffset(); i < node.primitiveOffset() + node.primitiveCount(); i++) {
+                        const BVHInterface::Primitive& prim = primitives[i];
+                        if (intersectRayWithTriangle(prim.v0.position, prim.v1.position, prim.v2.position, ray, hitInfo)) {
+                            updateHitInfo(state, prim, ray, hitInfo);
+                            is_hit = true;
+                        }
+                    }
+                } else {
+                    nodeStack.push(node.leftChild());
+                    nodeStack.push(node.rightChild());
+                }
+            }
+        }
+
+
     } else {
         // Naive implementation; simply iterates over all primitives
         for (const auto& prim : primitives) {
@@ -397,7 +423,7 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 //    m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
 }
 
-// TODO: Standard feature, or part of it
+// DONE: Standard feature, or part of it
 // Compute the nr. of levels in your hierarchy after construction; useful for `debugDrawLevel()`
 void BVH::buildNumLevels()
 {
