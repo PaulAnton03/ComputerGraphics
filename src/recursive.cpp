@@ -76,7 +76,7 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
     glm::vec3 originalDir = glm::normalize(-ray.direction);
     glm::vec3 n = glm::normalize(hitInfo.normal);
     glm::vec3 newDir = glm::normalize(-originalDir + 2 * glm::dot(originalDir, n) * n);
-    Ray res = { ray.origin + ray.direction * ray.t, newDir, std::numeric_limits<float>::max() };
+    Ray res = { ray.origin + ray.direction * ray.t + newDir*0.000005f, newDir, std::numeric_limits<float>::max() };
     return res;
 }
 
@@ -89,7 +89,7 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 // This method is unit-tested, so do not change the function signature.
 Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 {
-    Ray res = { ray.origin + ray.direction * ray.t, ray.direction, std::numeric_limits<float>::max() };
+    Ray res = { ray.origin + ray.direction * ray.t + ray.direction * 0.000005f, ray.direction, std::numeric_limits<float>::max() };
     // TODO: generate a passthrough ray
     return res;
 }
