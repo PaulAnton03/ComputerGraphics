@@ -44,6 +44,15 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     // Note, the center of the first pixel is at image coordinates (0.5, 0.5)
     float i = glm::max(0.0f, (texCoord.x * image.width)-.5f);
     float j = glm::max(0.0f, (texCoord.y * image.width) - .5f);
+    if (i > image.width - 1) {
+        i = image.width - 1.f;
+    }
+    if (j > image.height - 1) {
+        j = image.width - 1.f;
+    }
+    //    j>=image.height-1) {
+    //    return glm::vec3 { 1.f,0.f,0.f};
+    //}
     float alpha = i - glm::floor(i);
     float beta = j - glm::floor(j);
     int i1 = glm::floor(i);
