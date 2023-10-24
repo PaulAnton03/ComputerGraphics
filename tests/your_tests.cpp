@@ -22,9 +22,68 @@ DISABLE_WARNINGS_POP()
 //
 
 // Add your tests here, if you want :D
-TEST_CASE("StudentTest")
+TEST_CASE("ElementWiseMinTest")
 {
-    // Add your own tests here...
+        glm::vec3 a = { 1, 2, 3 };
+        glm::vec3 b = { 3, 2, 1 };
+        glm::vec3 c = elementWiseMin(a, b);
+        CHECK(c == glm::vec3(1, 2, 1));
+        CHECK(c.x <= a.x);
+        CHECK(c.x <= b.x);
+        CHECK(c.y <= a.y);
+        CHECK(c.y <= b.y);
+        CHECK(c.z <= a.z);
+        CHECK(c.z <= b.z);
+}
+
+TEST_CASE("ElementWiseMaxTest")
+{
+        glm::vec3 a = { 1, 2, 3 };
+        glm::vec3 b = { 3, 2, 1 };
+        glm::vec3 c = elementWiseMax(a, b);
+        CHECK(c == glm::vec3(3, 2, 3));
+        CHECK(c.x >= a.x);
+        CHECK(c.x >= b.x);
+        CHECK(c.y >= a.y);
+        CHECK(c.y >= b.y);
+        CHECK(c.z >= a.z);
+        CHECK(c.z >= b.z);
+}
+
+TEST_CASE("MinOfThreeTest")
+{
+        glm::vec3 a = { 1, 2, 3 };
+        glm::vec3 b = { 3, -1, 1 };
+        glm::vec3 c = { 2, 1, 3 };
+        glm::vec3 d = minOfThree(a, b, c);
+        CHECK(d == glm::vec3(1, -1, 1));
+        CHECK(d.x <= a.x);
+        CHECK(d.x <= b.x);
+        CHECK(d.x <= c.x);
+        CHECK(d.y <= a.y);
+        CHECK(d.y <= b.y);
+        CHECK(d.y <= c.y);
+        CHECK(d.z <= a.z);
+        CHECK(d.z <= b.z);
+        CHECK(d.z <= c.z);
+}
+
+TEST_CASE("MaxOFThreeTest")
+{
+        glm::vec3 a = { 1, 2, 3 };
+        glm::vec3 b = { 3, 2, 1 };
+        glm::vec3 c = { -1, 1, 3 };
+        glm::vec3 d = maxOfThree(a, b, c);
+        CHECK(d == glm::vec3(3, 2, 3));
+        CHECK(d.x >= a.x);
+        CHECK(d.x >= b.x);
+        CHECK(d.x >= c.x);
+        CHECK(d.y >= a.y);
+        CHECK(d.y >= b.y);
+        CHECK(d.y >= c.y);
+        CHECK(d.z >= a.z);
+        CHECK(d.z >= b.z);
+        CHECK(d.z >= c.z);
 }
 
 // The below tests are not "good" unit tests. They don't actually test correctness.
