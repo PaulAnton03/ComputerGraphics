@@ -25,7 +25,7 @@ DISABLE_WARNINGS_POP()
 void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec3& position, glm::vec3& color)
 {
     position = light.endpoint0 + sample * (light.endpoint1 - light.endpoint0);
-    color = light.color0 + sample * (light.color1 - light.color0);
+    color = light.color0 * (1.0f-sample)+light.color1*sample;
 }
 
 // TODO: Standard feature
@@ -43,13 +43,16 @@ void sampleParallelogramLight(const glm::vec2& sample, const ParallelogramLight&
     glm::vec3 edge01 = light.edge01;
     glm::vec3 edge02 = light.edge02;
     position = v0 + sample.x * edge01 + sample.y * edge02;
-    glm::vec3 color0 = light.color0;
-    glm::vec3 color1 = light.color1;
-    glm::vec3 color2 = light.color2;
-    glm::vec3 color3 = light.color3;
-    glm::vec3 colorA = color0 + sample.x * (color1 - color0);
-    glm::vec3 colorB = color3 + sample.x * (color2 - color3);
-    color = colorA + sample.y * (colorB - colorA);
+    glm::vec3 v0_to_p = position - v0;
+    float dot00 = glm::dot(edge01, edge01);
+    float dot01 = glm::dot(edge01, edge02);
+    float dot02 = glm::dot(edge01, v0_to_p);
+    float dot11 = glm::dot(edge02, edge02);
+    float dot12 = glm::dot(edge02, v0_to_p);
+    float invDenom = 1.0f / (dot00 * dot11 - dot01 * dot01);
+    float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+    float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+    color = light.color0 * (1.0f - u - v) + light.color1 * u + light.color2 * v + light.color3 * (1.0f - u - v);
 }
 
 // TODO: Standard feature
@@ -69,10 +72,11 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         // Shadows are disabled in the renderer
         return true;
     } else {
-        glm::vec3 intersectionPoint = ray.origin+ray.t * ray.direction;
+        glm::vec3 intersectionPoint = ray.origin+ray.t * glm::normalize(ray.direction);
         Ray shadowRay;
         shadowRay.origin = intersectionPoint;
         shadowRay.direction = glm::normalize(lightPosition - intersectionPoint);
+        shadowRay.t = glm::length(lightPosition-intersectionPoint);
         HitInfo shadowHitInfo;
         bool isShadowed = state.bvh.intersect(state,shadowRay, shadowHitInfo);
         return !isShadowed;
@@ -96,13 +100,23 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
-    glm::vec3 light = visibilityOfLightSample(state, lightPosition, lightColor, ray, hitInfo);
-    if (light==glm::vec3(0)) {
-        return glm::vec3(0);
+    glm::vec3 intersectionPoint = ray.origin + ray.t * glm::normalize(ray.direction);
+    Ray shadowRay;
+    shadowRay.origin = lightPosition;
+    shadowRay.direction = glm::normalize(intersectionPoint-lightPosition);
+    shadowRay.t = glm::length(intersectionPoint-lightPosition);
+    HitInfo shadowHitInfo;
+    glm::vec3 shadowedLightColor = lightColor;
+    while (state.bvh.intersect(state, shadowRay, shadowHitInfo)) {
+        float alpha = shadowHitInfo.material.transparency;
+        if (alpha>=1.0f-FLT_EPSILON) {
+			return glm::vec3(0);
+		}
+        shadowedLightColor = shadowedLightColor*sampleMaterialKd(state,shadowHitInfo)*(1.0f-alpha);
+        shadowRay.origin = shadowRay.origin + (shadowRay.t + FLT_EPSILON) * shadowRay.direction;
+        shadowRay.t = glm::length(intersectionPoint-shadowRay.origin);
     }
-    float transparency = hitInfo.material.transparency;
-    glm::vec3 visibleLightColor = lightColor * sampleMaterialKd(state,hitInfo)*(1.0f - transparency);
-    return visibleLightColor;
+    return shadowedLightColor;
 }
 
 // TODO: Standard feature
@@ -123,10 +137,11 @@ glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& li
     glm::vec3 p = ray.origin + ray.t * ray.direction;
     glm::vec3 l = glm::normalize(light.position - p);
     glm::vec3 v = -ray.direction;
-    if (visibilityOfLightSample(state,light.position,light.color,ray,hitInfo) == glm::vec3(0)) {
+    glm::vec3 lightColor = visibilityOfLightSample(state,light.position,light.color,ray,hitInfo);
+    if (lightColor == glm::vec3(0)) {
 		return glm::vec3(0);
 	}
-    return computeShading(state, v, l, light.color, hitInfo);
+    return computeShading(state, v, l, lightColor, hitInfo);
 }
 
 // TODO: Standard feature
@@ -151,15 +166,8 @@ glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight
     glm::vec3 accumulatedLight = glm::vec3(0.0f);
     for (uint32_t i = 0; i < numSamples; ++i) {
                 glm::vec3 lightPosition, lightColor;
-                glm::vec3 intersectionPoint = ray.origin + ray.t * ray.direction;
                 sampleSegmentLight(state.sampler.next_1d(), light, lightPosition, lightColor);
-                glm::vec3 lightDirection = glm::normalize(lightPosition - intersectionPoint);
-                glm::vec3 light = visibilityOfLightSample(state, lightPosition, lightColor, ray, hitInfo);
-                if (light!=glm::vec3(0)) {
-                    glm::vec3 viewDirection = -ray.direction;
-                    glm::vec3 shading = computeShading(state, viewDirection, lightDirection, lightColor, hitInfo);
-                    accumulatedLight += shading;
-                }
+                accumulatedLight+=computeContributionPointLight(state,PointLight(lightPosition,lightColor),ray,hitInfo);
     }
     return accumulatedLight / static_cast<float>(numSamples);
 }
@@ -187,15 +195,8 @@ glm::vec3 computeContributionParallelogramLight(RenderState& state, const Parall
     glm::vec3 accumulatedLight = glm::vec3(0.0f);
     for (uint32_t i = 0; i < numSamples; ++i) {
                 glm::vec3 lightPosition, lightColor;
-                glm::vec3 intersectionPoint = ray.origin + ray.t * ray.direction;
                 sampleParallelogramLight(state.sampler.next_2d(), light, lightPosition, lightColor);
-                glm::vec3 lightDirection = glm::normalize(lightPosition - intersectionPoint);
-                glm::vec3 light = visibilityOfLightSample(state, lightPosition, lightColor, ray, hitInfo);
-                if (light != glm::vec3(0)) {
-                    glm::vec3 viewDirection = -ray.direction;
-                    glm::vec3 shading = computeShading(state, viewDirection, lightDirection, lightColor, hitInfo);
-                    accumulatedLight += shading;
-                }
+                accumulatedLight+=computeContributionPointLight(state,PointLight(lightPosition,lightColor),ray,hitInfo);
     }
     return accumulatedLight / static_cast<float>(numSamples);
 }
