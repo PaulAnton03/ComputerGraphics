@@ -103,22 +103,22 @@ uint32_t BVH::nextNodeIdx()
     return idx;
 }
 
-glm::vec3 elementWiseMin(const glm::vec3 a, const glm::vec3 b)
+glm::vec3 elementWiseMin(const glm::vec3& a, const glm::vec3& b)
 {
     return { glm::min(a.x, b.x), glm::min(a.y, b.y), glm::min(a.z, b.z) };
 }
 
-glm::vec3 elementWiseMax(const glm::vec3 a, const glm::vec3 b)
+glm::vec3 elementWiseMax(const glm::vec3& a, const glm::vec3& b)
 {
     return { glm::max(a.x, b.x), glm::max(a.y, b.y), glm::max(a.z, b.z) };
 }
 
-glm::vec3 minOfThree(const glm::vec3 a, const glm::vec3 b, const glm::vec3 c)
+glm::vec3 minOfThree(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
 {
     return elementWiseMin(a, elementWiseMin(b, c));
 }
 
-glm::vec3 maxOfThree(const glm::vec3 a, const glm::vec3 b, const glm::vec3 c)
+glm::vec3 maxOfThree(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
 {
     return elementWiseMax(a, elementWiseMax(b, c));
 }
@@ -142,7 +142,7 @@ AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
 AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitives)
 {
     auto min = glm::vec3(std::numeric_limits<float>::max());
-    auto max = glm::vec3(std::numeric_limits<float>::min());
+    auto max = glm::vec3(-std::numeric_limits<float>::max());
     for (const BVHInterface::Primitive& p : primitives) {
         min = elementWiseMin(minOfThree(p.v0.position, p.v1.position, p.v2.position), min);
         max = elementWiseMax(maxOfThree(p.v0.position, p.v1.position, p.v2.position), max);
@@ -196,7 +196,7 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
     if (primitives.empty())
         return 0;
 
-    stable_sort(primitives.begin(), primitives.end(), [&](const Primitive& a, const Primitive& b) {
+    std::sort(primitives.begin(), primitives.end(), [&](const Primitive& a, const Primitive& b) {
         return computePrimitiveCentroid(a)[axis] < computePrimitiveCentroid(b)[axis];
     });
     return (primitives.size() + 1) / 2;
@@ -374,6 +374,7 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     if (primitives.size() <= LeafSize) {
         m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
+//        std::cout << "leaf: " << primitives.size() << std::endl;
         return;
     }
 
@@ -384,9 +385,19 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     const uint32_t rightIdx = nextNodeIdx();
 
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftIdx, rightIdx);
+//    if (primitives.size() < 10) {
+//        std::cout << "axis: " << axis << std::endl;
+//        for (Primitive p : primitives) {
+//            std::cout << (computePrimitiveCentroid(p)).x << ", " << (computePrimitiveCentroid(p)).y << ", " << (computePrimitiveCentroid(p)).z << std::endl;
+//        }
+//    }
 
-    buildRecursive(scene, features, primitives.subspan(0, splitIndex), leftIdx);
-    buildRecursive(scene, features, primitives.subspan(splitIndex, primitives.size() - splitIndex), rightIdx);
+    auto Rspan = primitives.subspan(splitIndex, primitives.size() - splitIndex);
+    auto Lspan = primitives.subspan(0, splitIndex);
+//    std::cout << "T: " << primitives.size() << " L: " << Lspan.size() << " R: " << Rspan.size() << std::endl;
+
+    buildRecursive(scene, features, Rspan, rightIdx);
+    buildRecursive(scene, features, Lspan, leftIdx);
 }
 
 // DONE: Standard feature, or part of it
@@ -438,17 +449,13 @@ void BVH::debugDrawLevel(int level)
     // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
     // colors, transparencies, etc.
-    std::queue<uint32_t> childQueue;
-    std::queue<uint32_t> curQueue;
+    std::queue<uint32_t> childQueue{};
+    std::queue<uint32_t> curQueue{};
     curQueue.push(RootIndex);
 
     int curLevel = 0;
-    while (curLevel != level && (!childQueue.empty() || !curQueue.empty())) {
-        if (curQueue.empty()) {
-            curQueue = childQueue;
-            childQueue = std::queue<uint32_t>();
-            curLevel++;
-        } else {
+    while (curLevel < level && (!childQueue.empty() || !curQueue.empty())) {
+        while (!curQueue.empty()) {
             Node& curNode = m_nodes[curQueue.front()];
             if (!curNode.isLeaf()) {
                 childQueue.push(curNode.leftChild());
@@ -456,6 +463,9 @@ void BVH::debugDrawLevel(int level)
             }
             curQueue.pop();
         }
+        curLevel++;
+        curQueue = childQueue;
+        childQueue = std::queue<uint32_t>();
     }
 
     while (!curQueue.empty()) {
