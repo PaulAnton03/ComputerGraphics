@@ -134,30 +134,41 @@ glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDire
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 LinearGradient::sample(float ti) const
 {
-    if (ti <= components[0].t) {
-        return components[0].color;
-    }
-    if (ti >= components[components.size() - 1].t) {
-        return components[components.size() - 1].color;
-    }
-    int left = 0;
-    int right = 0;
-    for (int i = 0; i < components.size(); i++) {
-        if (components[i].t == ti) {
-			return components[i].color;
+    float min = FLT_MAX, max = FLT_MIN;
+    int minIndex = 0, maxIndex = 0;
+    float minT = FLT_MIN, maxT = FLT_MAX;
+    int left = -1, right = -1;
+    for (int i = 0; i < components.size();i++) {
+        if (components[i].t < min) {
+                minIndex = i;
+                min = components[i].t;
 		}
-        if (components[i].t < ti && components[i+1].t>ti) {
-                left = i;
-                right = i + 1;
-                break;
+        if (components[i].t > max) {
+                maxIndex = i;
+                max= components[i].t;
+		}
+        if (components[i].t==ti) {
+            return components[i].color;
+        } else if (components[i].t < ti && components[i].t>minT) {
+            minT = components[i].t;
+			left = i;
+		} else if (components[i].t > ti && components[i].t<maxT) {
+			maxT = components[i].t;
+			right = i;
         }
     }
+    if (left == -1) {
+		return components[minIndex].color;
+    }
+    else if (right == -1) {
+		return components[maxIndex].color;
+	}
     float t1 = components[left].t;
     float t2 = components[right].t;
     float t = (ti - t1) / (t2 - t1);
     glm::vec3 color1 = components[left].color;
     glm::vec3 color2 = components[right].color;
-    return color1 + t*(color2 - color1);
+    return color1 * (1.0f-t) + color2 * t;
 }
 
 // TODO: Standard feature
@@ -177,7 +188,7 @@ glm::vec3 LinearGradient::sample(float ti) const
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeLinearGradientModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo, const LinearGradient& gradient)
 {
-    float cos = glm::dot(glm::normalize(lightDirection), glm::normalize(hitInfo.normal));
+    float cos = glm::max(0.0f,glm::dot(glm::normalize(lightDirection), glm::normalize(hitInfo.normal)));
     glm::vec3 diffuseColor = gradient.sample(cos);
-    return diffuseColor * lightColor;
+    return diffuseColor * lightColor * cos;
 }

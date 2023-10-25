@@ -112,9 +112,14 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
         if (alpha>=1.0f-FLT_EPSILON) {
 			return glm::vec3(0);
 		}
-        shadowedLightColor = shadowedLightColor*sampleMaterialKd(state,shadowHitInfo)*(1.0f-alpha);
+        if (alpha > FLT_EPSILON) {
+            shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * (1.0f - alpha);           
+        }
         shadowRay.origin = shadowRay.origin + (shadowRay.t + FLT_EPSILON) * shadowRay.direction;
         shadowRay.t = glm::length(intersectionPoint-shadowRay.origin);
+        if (shadowRay.t < FLT_EPSILON) {
+            break;
+        }
     }
     return shadowedLightColor;
 }
