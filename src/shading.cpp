@@ -88,6 +88,9 @@ glm::vec3 computePhongModel(RenderState& state, const glm::vec3& cameraDirection
     glm::vec3 v = glm::normalize(cameraDirection);
     glm::vec3 r = glm::normalize(2.0f * glm::dot(normal, l) * normal - l);
     float cosD = glm::max(0.0f, glm::dot(normal, l));
+    if (cosD == 0.0f) {
+		return glm::vec3(0.0f);
+	}
     float cosS = glm::max(0.0f, glm::dot(v, r));
     glm::vec3 diffuse = kd * lightColor * cosD;
     glm::vec3 specular = ks * lightColor * glm::pow(cosS, n);
@@ -119,6 +122,9 @@ glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDire
     glm::vec3 v = glm::normalize(cameraDirection);
     glm::vec3 h = glm::normalize((l + v) / glm::length((l + v)));
     float cosD = glm::max(0.0f, glm::dot(normal, l));
+    if (cosD == 0.0f) {
+        return glm::vec3(0.0f);
+    }
     float cosS = glm::max(0.0f, glm::dot(normal, h));
     glm::vec3 diffuse = kd * lightColor * cosD;
     glm::vec3 specular = ks * lightColor * glm::pow(cosS, n);

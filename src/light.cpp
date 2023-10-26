@@ -43,16 +43,12 @@ void sampleParallelogramLight(const glm::vec2& sample, const ParallelogramLight&
     glm::vec3 edge01 = light.edge01;
     glm::vec3 edge02 = light.edge02;
     position = v0 + sample.x * edge01 + sample.y * edge02;
-    glm::vec3 v0_to_p = position - v0;
-    float dot00 = glm::dot(edge01, edge01);
-    float dot01 = glm::dot(edge01, edge02);
-    float dot02 = glm::dot(edge01, v0_to_p);
-    float dot11 = glm::dot(edge02, edge02);
-    float dot12 = glm::dot(edge02, v0_to_p);
-    float invDenom = 1.0f / (dot00 * dot11 - dot01 * dot01);
-    float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-    float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-    color = light.color0 * (1.0f - u - v) + light.color1 * u + light.color2 * v + light.color3 * (1.0f - u - v);
+    float delta = glm::length(glm::cross(edge01, edge02));
+    float c0 = glm::length(glm::cross(edge01 - edge01 * sample.x, edge02 - edge02 * sample.y)) / delta;
+    float c1 = glm::length(glm::cross(edge01 * sample.x, edge02 - edge02 * sample.y)) / delta;
+    float c2 = glm::length(glm::cross(edge01 - edge01 * sample.x, edge02 * sample.y)) / delta;
+    float c3 = glm::length(glm::cross(edge01 * sample.x, edge02 * sample.y)) / delta;
+    color = light.color0 * c0 + light.color1 * c1 + light.color2 * c2 + light.color3 * c3;
 }
 
 // TODO: Standard feature
@@ -72,14 +68,17 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         // Shadows are disabled in the renderer
         return true;
     } else {
-        glm::vec3 intersectionPoint = ray.origin+ray.t * glm::normalize(ray.direction);
+        glm::vec3 intersectionPoint = ray.origin + ray.t * glm::normalize(ray.direction);
         Ray shadowRay;
-        shadowRay.origin = intersectionPoint;
         shadowRay.direction = glm::normalize(lightPosition - intersectionPoint);
-        shadowRay.t = glm::length(lightPosition-intersectionPoint);
+        shadowRay.origin = intersectionPoint + FLT_EPSILON*5 * shadowRay.direction;
         HitInfo shadowHitInfo;
-        bool isShadowed = state.bvh.intersect(state,shadowRay, shadowHitInfo);
-        return !isShadowed;
+        bool hit = state.bvh.intersect(state,shadowRay, shadowHitInfo);
+        float t = glm::length(lightPosition - intersectionPoint);
+        if (hit && shadowRay.t < t) {
+			return false;
+		}
+        return true;
     }
 }
 
@@ -101,13 +100,13 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
 glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
     glm::vec3 intersectionPoint = ray.origin + ray.t * glm::normalize(ray.direction);
-    Ray shadowRay;
-    shadowRay.origin = lightPosition;
-    shadowRay.direction = glm::normalize(intersectionPoint-lightPosition);
-    shadowRay.t = glm::length(intersectionPoint-lightPosition);
+    Ray lightRay;
+    lightRay.origin = lightPosition;
+    lightRay.direction = glm::normalize(intersectionPoint - lightPosition);
+    lightRay.t = glm::length(intersectionPoint - lightPosition);
     HitInfo shadowHitInfo;
     glm::vec3 shadowedLightColor = lightColor;
-    while (state.bvh.intersect(state, shadowRay, shadowHitInfo)) {
+    while (state.bvh.intersect(state, lightRay, shadowHitInfo)) {
         float alpha = shadowHitInfo.material.transparency;
         if (alpha>=1.0f-FLT_EPSILON) {
 			return glm::vec3(0);
@@ -115,9 +114,9 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
         if (alpha > FLT_EPSILON) {
             shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * (1.0f - alpha);           
         }
-        shadowRay.origin = shadowRay.origin + (shadowRay.t + FLT_EPSILON) * shadowRay.direction;
-        shadowRay.t = glm::length(intersectionPoint-shadowRay.origin);
-        if (shadowRay.t < FLT_EPSILON) {
+        lightRay.origin = lightRay.origin + (lightRay.t + FLT_EPSILON) * lightRay.direction;
+        lightRay.t = glm::length(intersectionPoint - lightRay.origin);
+        if (lightRay.t < FLT_EPSILON) {
             break;
         }
     }
