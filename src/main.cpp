@@ -35,7 +35,8 @@ DISABLE_WARNINGS_POP()
 // This is the main application. The code in here does not need to be modified.
 enum class ViewMode {
     Rasterization = 0,
-    RayTracing = 1
+    RayTracing = 1,
+    StaticImage = 2
 };
 
 int debugBVHLeafId = 0;
@@ -135,7 +136,7 @@ int main(int argc, char** argv)
                 }
             }
             {
-                constexpr std::array items { "Rasterization", "Ray Traced" };
+                constexpr std::array items { "Rasterization", "Ray Traced", "Static Image" };
                 ImGui::Combo("View mode", reinterpret_cast<int*>(&viewMode), items.data(), int(items.size()));
             }
 
@@ -185,6 +186,11 @@ int main(int argc, char** argv)
                 if (config.features.extra.enableBloomEffect) {
                     ImGui::Indent();
                     // Add bloom settings here, if necessary
+                    ImGui::SliderFloat("Threshold Value", &config.features.extra.bloomThreshold, 0.f, 1.f);
+                    ImGui::SliderFloat("Factor", &config.features.extra.bloomFactor, 0.f, 5.f);
+                    const uint32_t min = 1;
+                    const uint32_t max = 300;
+                    ImGui::SliderScalar("Filter Size", ImGuiDataType_U32, &config.features.extra.filterSize, & min, &max);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
@@ -242,6 +248,15 @@ int main(int argc, char** argv)
                     // Store the new image.
                     screen.writeBitmapToFile(outPath);
                 }
+            }
+            if(ImGui::Button("Render Static"))
+            {
+                // Perform a new render and measure the time it took to generate the image.
+                using clock = std::chrono::high_resolution_clock;
+                const auto start = clock::now();
+                renderImage(scene, bvh, config.features, camera, screen);
+                const auto end = clock::now();
+                std::cout << "Time to render image: " << std::chrono::duration<float, std::milli>(end - start).count() << " milliseconds" << std::endl;
             }
 
             ImGui::Spacing();
@@ -422,6 +437,9 @@ int main(int argc, char** argv)
                 screen.setPixel(0, 0, glm::vec3(1.0f));
                 screen.draw(); // Takes the image generated using ray tracing and outputs it to the screen using OpenGL.
             } break;
+            case ViewMode::StaticImage: {
+                screen.draw();
+            }
             default:
                 break;
             }

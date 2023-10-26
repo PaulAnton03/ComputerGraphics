@@ -68,6 +68,11 @@ struct ExtraFeatures {
     bool enableMipmapTextureFiltering = false;
     bool enableMotionBlur = false;
 
+    //parameters for bloom
+    float bloomThreshold = 0.9f;
+    uint32_t filterSize = 100;
+    float bloomFactor = 1.f;
+
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;
 
