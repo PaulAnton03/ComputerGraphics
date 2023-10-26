@@ -31,7 +31,48 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
+}
 
+//Bloom helper functions
+double factorial(int n)
+{
+    double result = 1.0;
+    while (n > 1)
+    {
+        result *= (double) n;
+        n--;
+    }
+    return result;
+}
+
+double partialFactorial(int n, int m)
+{
+    if(m <= 0)
+        m = 1;
+    if(n <= 0)
+        n = 1;
+
+    bool bottomHeavy = m > n;
+    int low = bottomHeavy ? n : m;
+    int high = bottomHeavy ? m : n;
+
+    double result = 1.0;
+
+    for(int i = low; i <= high; i++)
+        result *= (double) i;
+
+    result = (bottomHeavy) ? 1.0 / result : result;
+
+    return result;
+
+}
+
+uint32_t getIndex(int x, int y, const int & width, const int & height)
+{
+    uint32_t yc = (y < 0) ? 0 : (y >= height) ? height - 1 : y;
+    uint32_t xc = (x < 0) ? 0 : (x >= width) ? width - 1 : x;
+
+    return yc * ((uint32_t) width) + xc;
 }
 
 // TODO; Extra feature
@@ -40,13 +81,63 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 // not go on a hunting expedition for your implementation, so please keep it here!
 void postprocessImageWithBloom(const Scene& scene, const Features& features, const Trackball& camera, Screen& image)
 {
-    if (!features.extra.enableBloomEffect) {
+    if (!features.extra.enableBloomEffect)
         return;
+
+    std::vector<glm::vec3>& pixels = image.pixels();
+    std::vector<glm::vec3> thresholdPixels = {};
+
+    thresholdPixels.reserve(pixels.size());
+    for(glm::vec3  P : pixels)
+    {
+        if(P.x > features.extra.bloomThreshold || P.y > features.extra.bloomThreshold || P.z > features.extra.bloomThreshold)
+            thresholdPixels.push_back(P - features.extra.bloomThreshold);
+        else
+            thresholdPixels.push_back(glm::vec3(0.f));
     }
 
-    // ...
-}
+    std::vector<double> filter = {};
 
+    int n = (int) features.extra.filterSize;
+    n = (n % 2 == 0) ? n : n + 1;
+
+    //build filter
+    double sum = 0.0;
+    for (int i = 0; i <= n; i++) {
+        double P = 1.0;
+        if(n - i > i)
+            P = partialFactorial(n, n - i) / factorial(i);
+        else
+            P = partialFactorial(n, i) / factorial(n - i);
+        filter.emplace_back(P);
+        sum += P;
+    }
+    for (double & P : filter)
+        P /= sum;
+
+    std::vector<glm::vec3> filteredPixels = {pixels.size(), glm::vec3(0.f)};
+
+    //apply filter
+    for(int y = 0; y < image.resolution().y; y++) {
+        for(int x = 0; x < image.resolution().x; x++) {
+            auto P = glm::vec3(0.f);
+            for (int i = 0; i <= n; i++) {
+                P += (float) filter[i] * thresholdPixels[getIndex(x + i - n/2, y, image.resolution().x, image.resolution().y)];
+            }
+            filteredPixels [getIndex(x, y, image.resolution().x, image.resolution().y)] = P;
+        }
+    }
+
+    for(int x = 0; x < image.resolution().x; x++) {
+        for(int y = 0; y < image.resolution().y; y++) {
+            auto P = glm::vec3(0.f);
+            for (int i = 0; i <= n; i++) {
+                P += (float) filter[i] * filteredPixels[getIndex(x, y + i - n/2, image.resolution().x, image.resolution().y)];
+            }
+            pixels [getIndex(x, y, image.resolution().x, image.resolution().y)] = glm::clamp(pixels [getIndex(x, y, image.resolution().x, image.resolution().y)] + features.extra.bloomFactor *  P, 0.f, 1.f);
+        }
+    }
+}
 
 // TODO; Extra feature
 // Given a camera ray (or reflected camera ray) and an intersection, evaluates the contribution of a set of
@@ -83,7 +174,6 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
         return glm::vec3(0.f);
     }
 }
-
 
 // TODO: Extra feature
 // As an alternative to `splitPrimitivesByMedian`, use a SAH+binning splitting criterion. Refer to
