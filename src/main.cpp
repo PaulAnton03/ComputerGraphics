@@ -196,6 +196,11 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
                 if (config.features.extra.enableDepthOfField) {
                     ImGui::Indent();
+                    ImGui::SliderFloat("Focus Distance", &config.features.extra.focusDistance, 0.f, 10.f);
+                    ImGui::Checkbox("DOF Calculate Focus Distance", &config.features.extra.DOFCalculateFocusDistance);
+                    ImGui::SliderFloat("Aperture/ F-stop", &config.features.extra.aperture, 1.f, 25.f);
+                    uint32_t minSamples = 1u, maxSamples = 32u;
+                    ImGui::SliderScalar("Ray samples", ImGuiDataType_U32, &config.features.extra.DOFnumSamples, &minSamples, &maxSamples);
                     // Add DOF settings here, if necessary
                     ImGui::Unindent();
                 }

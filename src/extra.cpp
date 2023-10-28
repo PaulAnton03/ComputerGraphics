@@ -15,11 +15,52 @@
 // not go on a hunting expedition for your implementation, so please keep it here!
 void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
 {
-    if (!features.extra.enableDepthOfField) {
+    if (!features.extra.enableDepthOfField)
         return;
-    }
 
-    // ...
+    float F = features.extra.focusDistance;
+    if(features.extra.DOFCalculateFocusDistance)
+        F = camera.distanceFromLookAt();
+
+
+    glm::vec3 cPos = camera.position();
+    auto cDir = glm::quat(camera.rotationEulerAngles());
+
+#ifdef NDEBUG // Enable multi threading in Release mode
+#pragma omp parallel for schedule(guided)
+#endif
+
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+            // Note; we seed the sampler for consistent behavior across frames
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
+            auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
+            std::vector<Ray> extraRays = {};
+            for(Ray & ray : rays)
+            {
+                Sampler sampler = Sampler(static_cast<uint32_t>(screen.resolution().y * x + y));
+                extraRays.push_back(ray);
+
+                for(uint32_t i = 0; i < state.features.extra.DOFnumSamples - 1; i ++) {
+                    glm::vec3 focusPoint = ray.origin + ray.direction * F;
+                    glm::vec2 sample = sampler.next_2d();
+                    sample.x = (sample.x - 0.5f) * (1.f/ (1/F + 1.f)) / state.features.extra.aperture;
+                    sample.y *= glm::pi<float>();
+                    glm::vec3 newOrigin = cPos + cDir * glm::vec3(sample.x * glm::cos(sample.y), sample.x * glm::sin(sample.y), 0.f);
+                    extraRays.push_back({newOrigin, glm::normalize(focusPoint - newOrigin)});
+                }
+            }
+
+            auto L = renderRays(state, extraRays);
+            screen.setPixel(x, y, L);
+        }
+    }
 }
 
 // TODO; Extra feature
@@ -35,13 +76,12 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     }
 }
 
-//Bloom helper functions
+// Bloom helper functions
 double factorial(int n)
 {
     double result = 1.0;
-    while (n > 1)
-    {
-        result *= (double) n;
+    while (n > 1) {
+        result *= (double)n;
         n--;
     }
     return result;
@@ -49,9 +89,9 @@ double factorial(int n)
 
 double partialFactorial(int n, int m)
 {
-    if(m <= 0)
+    if (m <= 0)
         m = 1;
-    if(n <= 0)
+    if (n <= 0)
         n = 1;
 
     bool bottomHeavy = m > n;
@@ -60,21 +100,22 @@ double partialFactorial(int n, int m)
 
     double result = 1.0;
 
-    for(int i = low; i <= high; i++)
-        result *= (double) i;
+    for (int i = low; i <= high; i++)
+        result *= (double)i;
 
     result = (bottomHeavy) ? 1.0 / result : result;
 
     return result;
-
 }
 
-uint32_t getIndex(int x, int y, const int & width, const int & height)
+uint32_t getIndex(int x, int y, const int& width, const int& height)
 {
-    uint32_t yc = (y < 0) ? 0 : (y >= height) ? height - 1 : y;
-    uint32_t xc = (x < 0) ? 0 : (x >= width) ? width - 1 : x;
+    uint32_t yc = (y < 0) ? 0 : (y >= height) ? height - 1
+                                              : y;
+    uint32_t xc = (x < 0) ? 0 : (x >= width) ? width - 1
+                                             : x;
 
-    return yc * ((uint32_t) width) + xc;
+    return yc * ((uint32_t)width) + xc;
 }
 
 // TODO; Extra feature
@@ -90,9 +131,8 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
     std::vector<glm::vec3> thresholdPixels = {};
 
     thresholdPixels.reserve(pixels.size());
-    for(glm::vec3  P : pixels)
-    {
-        if(P.x > features.extra.bloomThreshold || P.y > features.extra.bloomThreshold || P.z > features.extra.bloomThreshold)
+    for (glm::vec3 P : pixels) {
+        if (P.x > features.extra.bloomThreshold || P.y > features.extra.bloomThreshold || P.z > features.extra.bloomThreshold)
             thresholdPixels.push_back(P - features.extra.bloomThreshold);
         else
             thresholdPixels.push_back(glm::vec3(0.f));
@@ -100,43 +140,43 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 
     std::vector<double> filter = {};
 
-    int n = (int) features.extra.filterSize;
+    int n = (int)features.extra.filterSize;
     n = (n % 2 == 0) ? n : n + 1;
 
-    //build filter
+    // build filter
     double sum = 0.0;
     for (int i = 0; i <= n; i++) {
         double P = 1.0;
-        if(n - i > i)
+        if (n - i > i)
             P = partialFactorial(n, n - i) / factorial(i);
         else
             P = partialFactorial(n, i) / factorial(n - i);
         filter.emplace_back(P);
         sum += P;
     }
-    for (double & P : filter)
+    for (double& P : filter)
         P /= sum;
 
-    std::vector<glm::vec3> filteredPixels = {pixels.size(), glm::vec3(0.f)};
+    std::vector<glm::vec3> filteredPixels = { pixels.size(), glm::vec3(0.f) };
 
-    //apply filter
-    for(int y = 0; y < image.resolution().y; y++) {
-        for(int x = 0; x < image.resolution().x; x++) {
+    // apply filter
+    for (int y = 0; y < image.resolution().y; y++) {
+        for (int x = 0; x < image.resolution().x; x++) {
             auto P = glm::vec3(0.f);
             for (int i = 0; i <= n; i++) {
-                P += (float) filter[i] * thresholdPixels[getIndex(x + i - n/2, y, image.resolution().x, image.resolution().y)];
+                P += (float)filter[i] * thresholdPixels[getIndex(x + i - n / 2, y, image.resolution().x, image.resolution().y)];
             }
-            filteredPixels [getIndex(x, y, image.resolution().x, image.resolution().y)] = P;
+            filteredPixels[getIndex(x, y, image.resolution().x, image.resolution().y)] = P;
         }
     }
 
-    for(int x = 0; x < image.resolution().x; x++) {
-        for(int y = 0; y < image.resolution().y; y++) {
+    for (int x = 0; x < image.resolution().x; x++) {
+        for (int y = 0; y < image.resolution().y; y++) {
             auto P = glm::vec3(0.f);
             for (int i = 0; i <= n; i++) {
-                P += (float) filter[i] * filteredPixels[getIndex(x, y + i - n/2, image.resolution().x, image.resolution().y)];
+                P += (float)filter[i] * filteredPixels[getIndex(x, y + i - n / 2, image.resolution().x, image.resolution().y)];
             }
-            pixels [getIndex(x, y, image.resolution().x, image.resolution().y)] = glm::clamp(pixels [getIndex(x, y, image.resolution().x, image.resolution().y)] + features.extra.bloomFactor *  P, 0.f, 1.f);
+            pixels[getIndex(x, y, image.resolution().x, image.resolution().y)] = glm::clamp(pixels[getIndex(x, y, image.resolution().x, image.resolution().y)] + features.extra.bloomFactor * P, 0.f, 1.f);
         }
     }
 }
