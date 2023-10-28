@@ -1,7 +1,9 @@
 #include "extra.h"
 #include "bvh.h"
 #include "light.h"
+#include "intersect.h"
 #include "recursive.h"
+#include "texture.h"
 #include "shading.h"
 #include <framework/trackball.h>
 
@@ -155,6 +157,37 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
     // Generate an initial specular ray, and base secondary glossies on this ray
     // auto numSamples = state.features.extra.numGlossySamples;
     // ...
+    if (!state.features.extra.enableGlossyReflection) {
+        return;
+    }
+    glm::vec3 intersectionPoint = ray.origin + ray.t * ray.direction;
+    float s = hitInfo.material.shininess;
+    glm::vec3 n = glm::normalize(hitInfo.normal);
+    glm::vec3 d = glm::normalize(-ray.direction);
+    glm::vec3 r = glm::normalize(2.0f * glm::dot(n, d) * n - d);
+    uint32_t numSamples = state.features.extra.numGlossySamples;
+    glm::vec3 u = glm::vec3(0);
+    if (r.x == 0) {
+        u = { 1, 0, 0 };
+    } else if (r.y == 0) {
+        u = { 0, 1, 0 };
+    } else if (r.z == 0) {
+        u = { 0, 0, 1 };
+    } else {
+        u = glm::normalize(glm::vec3 { r.y, -r.x, 0 });
+    }
+    glm::vec3 v = glm::normalize(glm::cross(r, u));
+    float diskRadius = s / 64.0f;
+    glm::vec3 ac = glm::vec3(0);
+    for (uint32_t i = 0; i < numSamples; i++) {
+        glm::vec2 sample = state.sampler.next_2d();
+        glm::vec3 rs = glm::normalize(r + u * diskRadius * (2 * sample.x - 1) + v * diskRadius * (2 * sample.y - 1));
+        if (glm::dot(n, rs) > 0.0f) {
+            Ray glossyRay = Ray(intersectionPoint + FLT_EPSILON * rs, rs);
+            ac += renderRay(state, glossyRay, rayDepth + 1);
+        }
+    }
+    hitColor += ac * hitInfo.material.ks;
 }
 
 // TODO; Extra feature
@@ -165,11 +198,90 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
 // - ray;   ray object
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
 // not go on a hunting expedition for your implementation, so please keep it here!
+// Code for finding the intersection of a ray with a cube map is taken from:https://en.wikipedia.org/wiki/Cube_mapping
 glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 {
     if (state.features.extra.enableEnvironmentMap) {
-        // Part of your implementation should go here
-        return glm::vec3(0.f);
+        const std::shared_ptr<Image>(&cubeMap)[6] = state.scene.cubeMap;
+        glm::vec3 direction = glm::normalize(ray.direction);
+        Ray intersect;
+        intersect.direction = direction;
+        AxisAlignedBox cube = AxisAlignedBox { glm::vec3(-1.0f), glm::vec3(1.0f) };
+        intersectRayWithShape(cube, intersect);
+        glm::vec3 intersectionPoint = intersect.origin + intersect.t * intersect.direction;
+        float absX = std::fabs(intersectionPoint.x);
+        float absY = std::fabs(intersectionPoint.y);
+        float absZ = std::fabs(intersectionPoint.z);
+
+        int isXPositive = intersectionPoint.x > 0 ? 1 : 0;
+        int isYPositive = intersectionPoint.y > 0 ? 1 : 0;
+        int isZPositive = intersectionPoint.z > 0 ? 1 : 0;
+
+        float maxAxis, uc, vc;
+
+        int index;
+        float x = intersectionPoint.x;
+        float y = intersectionPoint.y;
+        float z = intersectionPoint.z;
+
+        // POSITIVE X
+        if (isXPositive && absX >= absY && absX >= absZ) {
+            // u (0 to 1) goes from +z to -z
+            // v (0 to 1) goes from -y to +y
+            maxAxis = absX;
+            uc = -z;
+            vc = y;
+            index = 0;
+        }
+        // NEGATIVE X
+        if (!isXPositive && absX >= absY && absX >= absZ) {
+            // u (0 to 1) goes from -z to +z
+            // v (0 to 1) goes from -y to +y
+            maxAxis = absX;
+            uc = z;
+            vc = y;
+            index = 1;
+        }
+        // POSITIVE Y
+        if (isYPositive && absY >= absX && absY >= absZ) {
+            // u (0 to 1) goes from -x to +x
+            // v (0 to 1) goes from +z to -z
+            maxAxis = absY;
+            uc = x;
+            vc = -z;
+            index = 2;
+        }
+        // NEGATIVE Y
+        if (!isYPositive && absY >= absX && absY >= absZ) {
+            // u (0 to 1) goes from -x to +x
+            // v (0 to 1) goes from -z to +z
+            maxAxis = absY;
+            uc = x;
+            vc = z;
+            index = 3;
+        }
+        // POSITIVE Z
+        if (isZPositive && absZ >= absX && absZ >= absY) {
+            // u (0 to 1) goes from -x to +x
+            // v (0 to 1) goes from -y to +y
+            maxAxis = absZ;
+            uc = x;
+            vc = y;
+            index = 4;
+        }
+        // NEGATIVE Z
+        if (!isZPositive && absZ >= absX && absZ >= absY) {
+            // u (0 to 1) goes from +x to -x
+            // v (0 to 1) goes from -y to +y
+            maxAxis = absZ;
+            uc = -x;
+            vc = y;
+            index = 5;
+        }
+        // Convert range from -1 to 1 to 0 to 1
+        float u = 0.5f * (uc / maxAxis + 1.0f);
+        float v = 0.5f * (vc / maxAxis + 1.0f);
+        return sampleTextureNearest(*cubeMap[index], glm::vec2(u, v));
     } else {
         return glm::vec3(0.f);
     }

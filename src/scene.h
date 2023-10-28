@@ -36,6 +36,20 @@ struct Scene {
 
     // You can add your own objects (e.g. environment maps) here
     // ...
+    std::shared_ptr<Image> cubeMap[6];
+
+    std::filesystem::path dataDir = DATA_DIR "CubeMap";
+
+    Scene()
+    {
+        cubeMap[0] = std::make_shared<Image>(dataDir / "posx.jpg");
+        cubeMap[1] = std::make_shared<Image>(dataDir / "negx.jpg");
+        cubeMap[2] = std::make_shared<Image>(dataDir / "posy.jpg");
+        cubeMap[3] = std::make_shared<Image>(dataDir / "negy.jpg");
+        cubeMap[4] = std::make_shared<Image>(dataDir / "posz.jpg");
+        cubeMap[5] = std::make_shared<Image>(dataDir / "negz.jpg");
+   
+    }
 };
 
 // Load a prebuilt scene.
