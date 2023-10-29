@@ -7,6 +7,7 @@
 #include "screen.h"
 
 // TODO; Extra feature
+void DOFDebugDrawFocusPoint(const Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera);
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
 // of depth of field. Here, you generate camera rays s.t. a focus point and a thin lens camera model
 // are in play, allowing objects to be in and out of focus.
