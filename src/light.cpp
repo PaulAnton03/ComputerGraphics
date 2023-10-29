@@ -71,7 +71,7 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         glm::vec3 intersectionPoint = ray.origin + ray.t * glm::normalize(ray.direction);
         Ray shadowRay;
         shadowRay.direction = glm::normalize(lightPosition - intersectionPoint);
-        shadowRay.origin = intersectionPoint + FLT_EPSILON*5 * shadowRay.direction;
+        shadowRay.origin = intersectionPoint + FLT_EPSILON*10 * shadowRay.direction;
         HitInfo shadowHitInfo;
         bool hit = state.bvh.intersect(state,shadowRay, shadowHitInfo);
         float t = glm::length(lightPosition - intersectionPoint);
@@ -114,7 +114,7 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
         if (trans < 1.0f- FLT_EPSILON) {
             shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * trans;           
         }
-        lightRay.origin = lightRay.origin + (lightRay.t + FLT_EPSILON) * lightRay.direction;
+        lightRay.origin = lightRay.origin + (lightRay.t + FLT_EPSILON*40) * lightRay.direction;
         lightRay.t = std::numeric_limits<float>::max();
     }
     return shadowedLightColor;
