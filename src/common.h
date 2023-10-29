@@ -70,14 +70,14 @@ struct ExtraFeatures {
 
     //parameters for bloom
     float bloomThreshold = 0.9f;
-    uint32_t filterSize = 100;
+    uint32_t bloomFilterSize = 100;
     float bloomFactor = 1.f;
 
     //parameters for depth of field
-    float aperture = 3.f;
-    float focusDistance = 2.f;
-    uint32_t DOFnumSamples = 5;
-    bool DOFCalculateFocusDistance = true;
+    float aperture = 8.f;
+    float focusDistance = 5.f;
+    uint32_t DOFSamples = 5;
+    bool AutoFocus = true;
 
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;

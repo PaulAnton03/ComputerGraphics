@@ -6,6 +6,7 @@
 #include "sampler.h"
 #include "recursive.h"
 #include "screen.h"
+#include "extra.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -77,6 +78,9 @@ int main(int argc, char** argv)
         int bvhDebugLeaf = 0;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
+
+        bool debugFocusDistance { false };
+
         ViewMode viewMode { ViewMode::Rasterization };
 
         window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
@@ -190,17 +194,17 @@ int main(int argc, char** argv)
                     ImGui::SliderFloat("Factor", &config.features.extra.bloomFactor, 0.f, 5.f);
                     const uint32_t min = 1;
                     const uint32_t max = 300;
-                    ImGui::SliderScalar("Filter Size", ImGuiDataType_U32, &config.features.extra.filterSize, & min, &max);
+                    ImGui::SliderScalar("Filter Size", ImGuiDataType_U32, &config.features.extra.bloomFilterSize, & min, &max);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
                 if (config.features.extra.enableDepthOfField) {
                     ImGui::Indent();
-                    ImGui::SliderFloat("Focus Distance", &config.features.extra.focusDistance, 0.f, 10.f);
-                    ImGui::Checkbox("DOF Calculate Focus Distance", &config.features.extra.DOFCalculateFocusDistance);
                     ImGui::SliderFloat("Aperture/ F-stop", &config.features.extra.aperture, 1.f, 25.f);
+                    ImGui::Checkbox("Enable Auto Focus", &config.features.extra.AutoFocus);
+                    ImGui::SliderFloat("Manual Focus Distance", &config.features.extra.focusDistance, 0.f, 10.f);
                     uint32_t minSamples = 1u, maxSamples = 32u;
-                    ImGui::SliderScalar("Ray samples", ImGuiDataType_U32, &config.features.extra.DOFnumSamples, &minSamples, &maxSamples);
+                    ImGui::SliderScalar("Ray samples", ImGuiDataType_U32, &config.features.extra.DOFSamples, &minSamples, &maxSamples);
                     // Add DOF settings here, if necessary
                     ImGui::Unindent();
                 }
@@ -274,6 +278,7 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Draw BVH Leaf", &debugBVHLeaf);
                 if (debugBVHLeaf)
                     ImGui::SliderInt("BVH Leaf", &bvhDebugLeaf, 1, bvh.numLeaves());
+                ImGui::Checkbox("Draw Focus Distance", &debugFocusDistance);
             }
 
             ImGui::Spacing();
@@ -411,7 +416,7 @@ int main(int argc, char** argv)
 
                 drawLightsOpenGL(scene, camera, selectedLightIdx);
 
-                if (debugBVHLevel || debugBVHLeaf) {
+                if (debugBVHLevel || debugBVHLeaf || debugFocusDistance) {
                     glPushAttrib(GL_ALL_ATTRIB_BITS);
                     setOpenGLMatrices(camera);
                     glDisable(GL_LIGHTING);
@@ -426,6 +431,9 @@ int main(int argc, char** argv)
                         bvh.debugDrawLevel(bvhDebugLevel);
                     if (debugBVHLeaf)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
+                    if (debugFocusDistance)
+                        DOFDebugDrawFocusPoint(scene, bvh, config.features, camera);
+
                     enableDebugDraw = false;
                     glPopAttrib();
                 }

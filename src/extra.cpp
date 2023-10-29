@@ -6,25 +6,66 @@
 #include "texture.h"
 #include "shading.h"
 #include <framework/trackball.h>
+#include "draw.h"
 
-// TODO; Extra feature
+// DONE; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
 // of Depth of Field. Here, you generate camera rays s.t. a focus point and a thin lens camera model
 // are in play, allowing objects to be in and out of focus.
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
 // not go on a hunting expedition for your implementation, so please keep it here!
+
+
+//DOF helper function
+float calculateFocusDistance(const Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera)
+{
+    Ray ray = camera.generateRay({0.f, 0.f});
+    RenderState state = {
+        .scene = scene,
+        .features = features,
+        .bvh = bvh,
+        .sampler = { static_cast<uint32_t>(0)}
+    };
+    ray.t = std::numeric_limits<float>::max();
+    HitInfo info;
+    if(bvh.intersect(state, ray, info))
+        return ray.t;
+    return features.extra.focusDistance;
+}
+
+Ray generateSecondaryRay(const Ray & ray, const float &  focusDistance, Sampler &  sampler, const RenderState &  state, const glm::vec3 &  cameraPos, const glm::qua<float> &  cameraDir)
+{
+    glm::vec3 focusPoint = ray.origin + ray.direction * focusDistance;
+    glm::vec2 sample = sampler.next_2d();
+    sample.x = (sample.x - 0.5f) * (1.f/ (1/ focusDistance + 1.f)) / state.features.extra.aperture;
+    sample.y *= glm::pi<float>();
+    glm::vec3 newOrigin = cameraPos + cameraDir * glm::vec3(sample.x * glm::cos(sample.y), sample.x * glm::sin(sample.y), 0.f);
+    return {newOrigin, glm::normalize(focusPoint - newOrigin)};
+}
+
+//Show autofocus focus point in debug mode
+void DOFDebugDrawFocusPoint(const Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera)
+{
+    float focusDistance = features.extra.focusDistance;
+    if(features.extra.AutoFocus)
+        focusDistance = calculateFocusDistance(scene, bvh, features, camera);
+
+    Ray ray = camera.generateRay({0.f, 0.f});
+    ray.t = focusDistance;
+    drawSphere(glm::vec3(ray.origin + ray.direction * ray.t), 0.015f, glm::vec3(1.f, 1.f, 1.f));
+}
+
 void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
 {
     if (!features.extra.enableDepthOfField)
         return;
 
-    float F = features.extra.focusDistance;
-    if(features.extra.DOFCalculateFocusDistance)
-        F = camera.distanceFromLookAt();
+    float focusDistance = features.extra.focusDistance;
+    if(features.extra.AutoFocus)
+        focusDistance = calculateFocusDistance(scene, bvh, features, camera);
 
-
-    glm::vec3 cPos = camera.position();
-    auto cDir = glm::quat(camera.rotationEulerAngles());
+    glm::vec3 cameraPos = camera.position();
+    auto cameraDir = glm::quat(camera.rotationEulerAngles());
 
 #ifdef NDEBUG // Enable multi threading in Release mode
 #pragma omp parallel for schedule(guided)
@@ -41,23 +82,18 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
             auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
-            std::vector<Ray> extraRays = {};
+            std::vector<Ray> secondaryRays = {};
+
             for(Ray & ray : rays)
             {
                 Sampler sampler = Sampler(static_cast<uint32_t>(screen.resolution().y * x + y));
-                extraRays.push_back(ray);
+//                secondaryRays.push_back(ray);
 
-                for(uint32_t i = 0; i < state.features.extra.DOFnumSamples - 1; i ++) {
-                    glm::vec3 focusPoint = ray.origin + ray.direction * F;
-                    glm::vec2 sample = sampler.next_2d();
-                    sample.x = (sample.x - 0.5f) * (1.f/ (1/F + 1.f)) / state.features.extra.aperture;
-                    sample.y *= glm::pi<float>();
-                    glm::vec3 newOrigin = cPos + cDir * glm::vec3(sample.x * glm::cos(sample.y), sample.x * glm::sin(sample.y), 0.f);
-                    extraRays.push_back({newOrigin, glm::normalize(focusPoint - newOrigin)});
-                }
+                for(uint32_t i = 0; i < state.features.extra.DOFSamples; i ++)
+                    secondaryRays.emplace_back(generateSecondaryRay(ray, focusDistance, sampler, state, cameraPos, cameraDir));
             }
 
-            auto L = renderRays(state, extraRays);
+            auto L = renderRays(state, secondaryRays);
             screen.setPixel(x, y, L);
         }
     }
@@ -140,7 +176,7 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 
     std::vector<double> filter = {};
 
-    int n = (int)features.extra.filterSize;
+    int n = (int)features.extra.bloomFilterSize;
     n = (n % 2 == 0) ? n : n + 1;
 
     // build filter
