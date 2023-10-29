@@ -257,7 +257,9 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
     glm::vec3 ac = glm::vec3(0);
     for (uint32_t i = 0; i < numSamples; i++) {
         glm::vec2 sample = state.sampler.next_2d();
-        glm::vec3 rs = glm::normalize(r + u * diskRadius * (2 * sample.x - 1) + v * diskRadius * (2 * sample.y - 1));
+        float radius = diskRadius * std::sqrt(sample.y);
+        float angle = 2.0f * glm::pi<float>() * sample.x;
+        glm::vec3 rs = glm::normalize(r + u* radius* std::cos(angle) + v* radius* std::sin(angle));
         if (glm::dot(n, rs) > 0.0f) {
             Ray glossyRay = Ray(intersectionPoint + FLT_EPSILON * rs, rs);
             ac += renderRay(state, glossyRay, rayDepth + 1);
@@ -274,7 +276,6 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
 // - ray;   ray object
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
 // not go on a hunting expedition for your implementation, so please keep it here!
-// Code for finding the intersection of a ray with a cube map is taken from:https://en.wikipedia.org/wiki/Cube_mapping
 glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 {
     if (state.features.extra.enableEnvironmentMap) {
@@ -285,83 +286,91 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
         AxisAlignedBox cube = AxisAlignedBox { glm::vec3(-1.0f), glm::vec3(1.0f) };
         intersectRayWithShape(cube, intersect);
         glm::vec3 intersectionPoint = intersect.origin + intersect.t * intersect.direction;
-        float absX = std::fabs(intersectionPoint.x);
-        float absY = std::fabs(intersectionPoint.y);
-        float absZ = std::fabs(intersectionPoint.z);
-
-        int isXPositive = intersectionPoint.x > 0 ? 1 : 0;
-        int isYPositive = intersectionPoint.y > 0 ? 1 : 0;
-        int isZPositive = intersectionPoint.z > 0 ? 1 : 0;
-
-        float maxAxis, uc, vc;
-
-        int index;
         float x = intersectionPoint.x;
         float y = intersectionPoint.y;
         float z = intersectionPoint.z;
-
-        // POSITIVE X
-        if (isXPositive && absX >= absY && absX >= absZ) {
-            // u (0 to 1) goes from +z to -z
-            // v (0 to 1) goes from -y to +y
-            maxAxis = absX;
-            uc = -z;
-            vc = y;
+        bool posX = true;
+        bool posY = true;
+        bool posZ = true;
+        if (x <= 0)
+            posX = false;
+        if (y <= 0)
+            posY = false;
+        if (z <= 0)
+            posZ = false;
+        float absX = std::fabs(x);
+        float absY = std::fabs(y);
+        float absZ = std::fabs(z);
+        int index;
+        float axis, u, v;
+        if (posX && absX >= absY && absX >= absZ) {
+            u = -z;
+            v = y;
             index = 0;
+            axis = absX;
         }
-        // NEGATIVE X
-        if (!isXPositive && absX >= absY && absX >= absZ) {
-            // u (0 to 1) goes from -z to +z
-            // v (0 to 1) goes from -y to +y
-            maxAxis = absX;
-            uc = z;
-            vc = y;
+        else if (!posX && absX >= absY && absX >= absZ) {
+            u = z;
+            v = y;
             index = 1;
+            axis = absX;
         }
-        // POSITIVE Y
-        if (isYPositive && absY >= absX && absY >= absZ) {
-            // u (0 to 1) goes from -x to +x
-            // v (0 to 1) goes from +z to -z
-            maxAxis = absY;
-            uc = x;
-            vc = -z;
+        else if (posY && absY >= absX && absY >= absZ) {
+            u = x;
+            v = -z;
             index = 2;
+            axis = absY;
         }
-        // NEGATIVE Y
-        if (!isYPositive && absY >= absX && absY >= absZ) {
-            // u (0 to 1) goes from -x to +x
-            // v (0 to 1) goes from -z to +z
-            maxAxis = absY;
-            uc = x;
-            vc = z;
+        else if (!posY && absY >= absX && absY >= absZ) {
+            u = x;
+            v = z;
             index = 3;
+            axis = absY;
         }
-        // POSITIVE Z
-        if (isZPositive && absZ >= absX && absZ >= absY) {
-            // u (0 to 1) goes from -x to +x
-            // v (0 to 1) goes from -y to +y
-            maxAxis = absZ;
-            uc = x;
-            vc = y;
+        else if (posZ && absZ >= absX && absZ >= absY) {
+            u = x;
+            v = y;
             index = 4;
+            axis = absZ;
         }
-        // NEGATIVE Z
-        if (!isZPositive && absZ >= absX && absZ >= absY) {
-            // u (0 to 1) goes from +x to -x
-            // v (0 to 1) goes from -y to +y
-            maxAxis = absZ;
-            uc = -x;
-            vc = y;
+        else {
+            u = -x;
+            v = y;
             index = 5;
+            axis = absZ;
         }
-        // Convert range from -1 to 1 to 0 to 1
-        float u = 0.5f * (uc / maxAxis + 1.0f);
-        float v = 0.5f * (vc / maxAxis + 1.0f);
+        u = 0.5f * (u / axis + 1.0f);
+        v = 0.5f * (v / axis + 1.0f);
         return sampleTextureNearest(*cubeMap[index], glm::vec2(u, v));
     } else {
         return glm::vec3(0.f);
     }
 }
+
+// Helper method for SAH binning
+float calculateAreaOfAABB(const AxisAlignedBox& aabb)
+{
+    glm::vec3 dimensions = aabb.upper - aabb.lower;
+    float area1 = dimensions.x * dimensions.y;
+    float area2 = dimensions.x * dimensions.y;
+    float area3 = dimensions.x * dimensions.z;
+    float area4 = dimensions.x * dimensions.z;
+    float area5 = dimensions.y * dimensions.z;
+    float area6 = dimensions.y * dimensions.z;
+    float totalArea = area1 + area2 + area3 + area4 + area5 + area6;
+    return totalArea;
+}
+
+// Struct for SAH binning
+struct SAHBin {
+    AxisAlignedBox aabb = { .lower = glm::vec3(FLT_MAX), .upper = glm::vec3(-FLT_MAX) };
+    AxisAlignedBox leftAABB;
+    AxisAlignedBox rightAABB;
+	size_t count=0;
+    size_t leftCount;
+    size_t rightCount;
+    std::span<BVH::Primitive> primitives;
+};
 
 // TODO: Extra feature
 // As an alternative to `splitPrimitivesByMedian`, use a SAH+binning splitting criterion. Refer to
@@ -374,6 +383,53 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
 {
     using Primitive = BVH::Primitive;
+    const size_t numBins = 16;
+    SAHBin bins[numBins];
+    for (const Primitive& primitive : primitives) {
+        glm::vec3 centroid = computePrimitiveCentroid(primitive);
+        int binIndex = static_cast<int>((centroid[axis] - aabb.lower[axis]) / (aabb.upper[axis] - aabb.lower[axis]) * numBins);
+        binIndex = std::clamp(binIndex, 0, static_cast<int> (numBins) - 1);
+        AxisAlignedBox paabb = computePrimitiveAABB(primitive);
 
-    return 0; // This is clearly not the solution
+        bins[binIndex].aabb.lower = elementWiseMin(bins[binIndex].aabb.lower, paabb.lower);
+        bins[binIndex].aabb.upper = elementWiseMax(bins[binIndex].aabb.upper, paabb.upper);
+        bins[binIndex].count++;
+    }
+
+    bins[0].leftAABB = bins[0].aabb;
+    bins[0].leftCount = bins[0].count;
+    for (size_t i = 1; i < numBins-1; i++) {
+        
+        bins[i].leftAABB.lower = elementWiseMin(bins[i - 1].leftAABB.lower, bins[i].aabb.lower);
+        bins[i].leftAABB.upper = elementWiseMax(bins[i - 1].leftAABB.upper, bins[i].aabb.upper);
+        bins[i].leftCount = bins[i - 1].leftCount + bins[i].count;
+    }
+
+    bins[numBins - 1].rightAABB = bins[numBins - 1].aabb;
+    bins[numBins - 1].rightCount = bins[numBins - 1].count;
+    for (int i = numBins - 2; i >= 1; i--) {
+        
+        bins[i].rightAABB.lower = elementWiseMin(bins[i + 1].rightAABB.lower, bins[i].aabb.lower);
+        bins[i].rightAABB.upper = elementWiseMax(bins[i + 1].rightAABB.upper, bins[i].aabb.upper);
+        bins[i].rightCount = bins[i + 1].rightCount + bins[i].count;
+    }
+
+    size_t bestSplitIndex = 0;
+    float bestSplitCost = FLT_MAX;
+    for (size_t i = 0; i < numBins-1; i++) {
+
+        float cost = bins[i].leftCount * calculateAreaOfAABB(bins[i].leftAABB) + bins[i + 1].rightCount * calculateAreaOfAABB(bins[i+1].rightAABB);
+
+        if (cost < bestSplitCost) {
+            bestSplitCost = cost;
+            bestSplitIndex = i;
+        }
+
+        if (bins[i].leftCount == 0 || bins[i+1].rightCount==0) {
+            bestSplitIndex = i;
+            break;
+        }
+    }
+
+    return bins[bestSplitIndex].leftCount; // Return the split position
 }

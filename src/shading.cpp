@@ -140,9 +140,9 @@ glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDire
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 LinearGradient::sample(float ti) const
 {
-    float min = FLT_MAX, max = FLT_MIN;
+    float min = FLT_MAX, max = -FLT_MAX;
     int minIndex = 0, maxIndex = 0;
-    float minT = FLT_MIN, maxT = FLT_MAX;
+    float minT = -FLT_MAX, maxT = FLT_MAX;
     int left = -1, right = -1;
     for (int i = 0; i < components.size();i++) {
         if (components[i].t < min) {
