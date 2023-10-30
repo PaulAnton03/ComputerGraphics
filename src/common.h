@@ -40,7 +40,12 @@ struct Sphere {
     glm::vec3 center { 0.0f };
     float radius = 1.0f;
     Material material;
-};
+    /* added for motion blur*/
+    glm::vec3 p1 { 0.0f };
+    glm::vec3 p2 { 0.0f };
+    bool moveable { false };
+}
+;
 
 struct PointLight {
     glm::vec3 position;

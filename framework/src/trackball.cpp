@@ -106,6 +106,7 @@ Ray Trackball::generateRay(const glm::vec2& pixel) const
     ray.origin = position();
     ray.direction = glm::quat(m_rotationEulerAngles) * cameraSpaceDirection;
     ray.t = std::numeric_limits<float>::max();
+    ray.time = 0;
     return ray;
 }
 
