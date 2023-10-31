@@ -99,17 +99,17 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
     }
 }
 
-Scene updateScene(const Scene& scene)
+Scene updateScene(const Scene& scene, const Features& features)
 {
     Scene scene2 = scene;
     for (Mesh& m : scene2.meshes) {
-        m.p1 = { 0, 0, 0 };
-        m.p2 = { .1, 0, 0 };
+        m.p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+        m.p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
         m.moveable = true;
     }
     for (Sphere& s : scene2.spheres) {
-        s.p1 = { 0, 0, 0 };
-        s.p2 = { 1, 0, 0 };
+        s.p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+        s.p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
         s.moveable = true;
     }
     return scene2;
@@ -126,7 +126,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
-    Scene scene2 = updateScene(scene);
+    Scene scene2 = updateScene(scene,features);
     BVH bvh2 = BVH(scene2, features);
     for (int y = 0; y < screen.resolution().y; y++) {
         for (int x = 0; x != screen.resolution().x; x++) {
