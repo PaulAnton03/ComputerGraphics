@@ -87,6 +87,14 @@ struct ExtraFeatures {
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;
 
+    // Parameters for motion blur
+    float bezierOffset1x = 0;
+    float bezierOffset1y = 0;
+    float bezierOffset1z = 0;
+    float bezierOffset2x = 0;
+    float bezierOffset2y = 0;
+    float bezierOffset2z = 0;
+
 };
 
 struct Features {
