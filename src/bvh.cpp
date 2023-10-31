@@ -275,17 +275,39 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     } else {
         // Naive implementation; simply iterates over all primitives
         for (const auto& prim : primitives) {
-            const auto& [v0, v1, v2] = std::tie(prim.v0, prim.v1, prim.v2);
-            if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
-                updateHitInfo(state, prim, ray, hitInfo);
-                is_hit = true;
+            
+            /* addition for motion blur*/
+            if (state.scene.meshes[prim.meshID].moveable) {
+                auto [v0, v1, v2] = std::make_tuple(prim.v0, prim.v1, prim.v2);
+                v0.position = ((1.f - ray.time) * (1.f - ray.time)) * v0.position + 2 * ray.time * (1 - ray.time) * (v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v0.position + state.scene.meshes[prim.meshID].p2);
+                v1.position = ((1.f - ray.time) * (1.f - ray.time)) * v1.position + 2 * ray.time * (1 - ray.time) * (v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v1.position + state.scene.meshes[prim.meshID].p2);
+                v2.position = ((1.f - ray.time) * (1.f - ray.time)) * v2.position + 2 * ray.time * (1 - ray.time) * (v2.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v2.position + state.scene.meshes[prim.meshID].p2);
+                if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
+                    updateHitInfo(state, prim, ray, hitInfo);
+                    is_hit = true;
+                }
+            } else {
+                const auto& [v0, v1, v2] = std::make_tuple(prim.v0, prim.v1, prim.v2);
+
+                if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
+                    updateHitInfo(state, prim, ray, hitInfo);
+                    is_hit = true;
+                }
             }
+            
         }
     }
 
     // Intersect with spheres.
-    for (const auto& sphere : state.scene.spheres)
-        is_hit |= intersectRayWithShape(sphere, ray, hitInfo);
+    for (const auto& sphere : state.scene.spheres) {
+        if (sphere.moveable) {
+            Sphere s = sphere;
+            s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + sphere.p1) + ray.time * ray.time * (sphere.center + sphere.p2);
+            is_hit |= intersectRayWithShape(s, ray, hitInfo);     
+        } else {
+            is_hit |= intersectRayWithShape(sphere, ray, hitInfo); 
+        }
+    }
 
     return is_hit;
 }

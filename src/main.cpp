@@ -179,7 +179,7 @@ int main(int argc, char** argv)
                 ImGui::Separator(); // Pixel sampling does not have an accompanying toggle
                 {
                     ImGui::Checkbox("Jittered sampling", &config.features.enableJitteredSampling);
-                    uint32_t minSamples = 1u, maxSamples = 64u;
+                    uint32_t minSamples = 1u, maxSamples = 1024u;
                     ImGui::SliderScalar("Pixel samples", ImGuiDataType_U32, &config.features.numPixelSamples, &minSamples, &maxSamples);
                 }
             }
@@ -211,6 +211,12 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Motion blur", &config.features.extra.enableMotionBlur);
                 if (config.features.extra.enableMotionBlur) {
                     ImGui::Indent();
+                    ImGui::SliderFloat("Bezier Offset 1 X", &config.features.extra.bezierOffset1x, -.25f, .25f);
+                    ImGui::SliderFloat("Bezier Offset 1 Y", &config.features.extra.bezierOffset1y, -.25f, .25f);
+                    ImGui::SliderFloat("Bezier Offset 1 Z", &config.features.extra.bezierOffset1z, -.25f, .25f);
+                    ImGui::SliderFloat("Bezier Offset 2 X", &config.features.extra.bezierOffset2x, -.25f, .25f);
+                    ImGui::SliderFloat("Bezier Offset 2 Y", &config.features.extra.bezierOffset2y, -.25f, .25f);
+                    ImGui::SliderFloat("Bezier Offset 2 Z", &config.features.extra.bezierOffset2z, -.25f, .25f);
                     // Add motion blur settings here, if necessary
                     ImGui::Unindent();
                 }

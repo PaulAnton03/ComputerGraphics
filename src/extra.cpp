@@ -99,6 +99,22 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
     }
 }
 
+Scene updateScene(const Scene& scene, const Features& features)
+{
+    Scene scene2 = scene;
+    for (Mesh& m : scene2.meshes) {
+        m.p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+        m.p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
+        m.moveable = true;
+    }
+    for (Sphere& s : scene2.spheres) {
+        s.p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+        s.p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
+        s.moveable = true;
+    }
+    return scene2;
+}
+
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
 // of motion blur. Here, you integrate over a time domain, and not just the pixel's image domain,
@@ -109,6 +125,27 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 {
     if (!features.extra.enableMotionBlur) {
         return;
+    }
+    Scene scene2 = updateScene(scene,features);
+    BVH bvh2 = BVH(scene2, features);
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+            // Note; we seed the sampler for consistenct behavior across frames
+            Sampler sampler = {static_cast<uint32_t>(screen.resolution().y * x + y)};
+            RenderState state = {
+                .scene = scene2,
+                .features = features,
+                .bvh = bvh,
+                .sampler = sampler
+            };
+            auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
+            for (Ray& r : rays) {
+                r.time = sampler.next_1d();
+            }
+            auto L = renderRays(state, rays);
+            screen.setPixel(x, y, L);
+        }
     }
 }
 
