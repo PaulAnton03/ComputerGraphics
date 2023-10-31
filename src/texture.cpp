@@ -20,8 +20,8 @@ glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
     // The pixel are stored in a 1D array of row major order
     // you can convert from position (i,j) to an index using the method seen in the lecture
     // Note, the center of the first pixel is at image coordinates (0.5, 0.5)
-    float x = 1.f - texCoord.x;
-    float y = texCoord.y;
+    float x = texCoord.x;
+    float y = 1.f-texCoord.y;
     int i = (int) glm::min(image.width-1.0f,glm::max(0.0f,(x*image.width)));
     int j = (int)glm::min(image.height- 1.0f, glm::max(0.0f, (y * image.height)));
     //std::cout << 
@@ -45,8 +45,8 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     // The pixel are stored in a 1D array of row major order
     // you can convert from position (i,j) to an index using the method seen in the lecture
     // Note, the center of the first pixel is at image coordinates (0.5, 0.5)
-    float x = 1.f - texCoord.x;
-    float y = texCoord.y;
+    float x = texCoord.x;
+    float y = 1.f-texCoord.y;
     float i = glm::max(0.0f, (x * image.width)-.5f);
     float j = glm::max(0.0f, (y * image.height) - .5f);
     if (i > image.width - 1) {
