@@ -119,15 +119,38 @@ Scene updateScene(const Scene& scene, const Features& features)
 void drawMovementLine(glm::vec3 p, const Features& features) {
     std::vector<glm::vec3> points = {};
     glm::vec3 p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
-    glm::vec3  p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
+    glm::vec3 p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
     for (float t = 0; t < 1.f; t += 0.001f) {
         points.push_back(((1.f - t) * (1.f - t)) * p + 2 * t * (1 - t) * (p + p1) + t * t * (p + p2));
     }
     drawLine(points);
 }
 
+void drawMotionMeshAtTime(Scene scene, const Features& features) {
+    const double period = 5.0;
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    auto duration = currentTime.time_since_epoch();
+    double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
+    float t = (float)fmod(seconds / period, 1.0);
+    glm::vec3 p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+    glm::vec3 p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
+    for (Mesh& m : scene.meshes) {
+        for (Vertex& v : m.vertices) {
+            v.position += 2 * t * (1 - t) * (p1) + t * t * (p2);
+        }
+        for (glm::uvec3 triangle : m.triangles) {
+            drawTriangle(m.vertices[triangle.x], m.vertices[triangle.y], m.vertices[triangle.z]);
+        }
+    }
+    for (Sphere& s : scene.spheres) {
+        s.center += 2 * t * (1 - t) * (p1) + t * t * (p2);
+        drawSphere(s);
+    }
+}
+
 void drawMotionblurPath(Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
 {
+    drawMotionMeshAtTime(scene, features);
     for (Mesh& m : scene.meshes) {
         for (Vertex& v : m.vertices) {
             drawMovementLine(v.position, features);
@@ -153,6 +176,8 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     }
     Scene scene2 = updateScene(scene,features);
     BVH bvh2 = BVH(scene2, features);
+    Features features2 = features;
+    features2.numPixelSamples += 3;
     for (int y = 0; y < screen.resolution().y; y++) {
         for (int x = 0; x != screen.resolution().x; x++) {
             // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
@@ -160,13 +185,25 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
             Sampler sampler = {static_cast<uint32_t>(screen.resolution().y * x + y)};
             RenderState state = {
                 .scene = scene2,
-                .features = features,
+                .features = features2,
                 .bvh = bvh,
                 .sampler = sampler
             };
             auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
+            int count = 0;
             for (Ray& r : rays) {
-                r.time = sampler.next_1d();
+                if (count == 0) {
+                    r.time = 0;
+                    count++;
+                } else if (count == 1) {
+                    r.time = .5f;
+                    count++;
+                } else if (count == 2) {
+                    r.time = .1f;
+                    count++;
+                } else {
+                    r.time = sampler.next_1d(); 
+                }
             }
             auto L = renderRays(state, rays);
             screen.setPixel(x, y, L);
