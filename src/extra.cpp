@@ -7,6 +7,7 @@
 #include "shading.h"
 #include <framework/trackball.h>
 #include "draw.h"
+#include <vector>
 
 // DONE; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
@@ -114,6 +115,30 @@ Scene updateScene(const Scene& scene, const Features& features)
     }
     return scene2;
 }
+
+void drawMovementLine(glm::vec3 p, const Features& features) {
+    std::vector<glm::vec3> points = {};
+    glm::vec3 p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+    glm::vec3  p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
+    for (float t = 0; t < 1.f; t += 0.001f) {
+        points.push_back(((1.f - t) * (1.f - t)) * p + 2 * t * (1 - t) * (p + p1) + t * t * (p + p2));
+    }
+    drawLine(points);
+}
+
+void drawMotionblurPath(Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
+{
+    for (Mesh& m : scene.meshes) {
+        for (Vertex& v : m.vertices) {
+            drawMovementLine(v.position, features);
+        }
+    }
+    for (Sphere& s : scene.spheres) {
+        drawMovementLine(s.center, features);
+    }
+    //drawLine()
+}
+
 
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation

@@ -32,6 +32,7 @@ DISABLE_WARNINGS_POP()
 #include <string>
 #include <thread>
 #include <variant>
+#include <extra.cpp>
 
 // This is the main application. The code in here does not need to be modified.
 enum class ViewMode {
@@ -80,6 +81,8 @@ int main(int argc, char** argv)
         bool debugBVHLeaf { false };
 
         bool debugFocusDistance { false };
+
+        bool motionblurDebug { false };
 
         ViewMode viewMode { ViewMode::Rasterization };
 
@@ -285,6 +288,7 @@ int main(int argc, char** argv)
                 if (debugBVHLeaf)
                     ImGui::SliderInt("BVH Leaf", &bvhDebugLeaf, 1, bvh.numLeaves());
                 ImGui::Checkbox("Draw Focus Distance", &debugFocusDistance);
+                ImGui::Checkbox("Draw Motionblur Paths", &motionblurDebug);
             }
 
             ImGui::Spacing();
@@ -422,7 +426,7 @@ int main(int argc, char** argv)
 
                 drawLightsOpenGL(scene, camera, selectedLightIdx);
 
-                if (debugBVHLevel || debugBVHLeaf || debugFocusDistance) {
+                if (debugBVHLevel || debugBVHLeaf || debugFocusDistance || motionblurDebug) {
                     glPushAttrib(GL_ALL_ATTRIB_BITS);
                     setOpenGLMatrices(camera);
                     glDisable(GL_LIGHTING);
@@ -439,7 +443,8 @@ int main(int argc, char** argv)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
                     if (debugFocusDistance)
                         DOFDebugDrawFocusPoint(scene, bvh, config.features, camera);
-
+                    if (motionblurDebug)
+                        drawMotionblurPath(scene, bvh, config.features, camera,screen);
                     enableDebugDraw = false;
                     glPopAttrib();
                 }
