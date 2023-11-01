@@ -11,7 +11,7 @@
 DISABLE_WARNINGS_PUSH()
 #include <glm/geometric.hpp>
 DISABLE_WARNINGS_POP()
-
+float bias = 0.001f;
 
 // TODO: Standard feature
 // Given a single segment light, transform a uniformly distributed 1d sample in [0, 1),
@@ -71,7 +71,7 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         glm::vec3 intersectionPoint = ray.origin + ray.t * glm::normalize(ray.direction);
         Ray shadowRay;
         shadowRay.direction = glm::normalize(lightPosition - intersectionPoint);
-        shadowRay.origin = intersectionPoint + FLT_EPSILON*10 * shadowRay.direction;
+        shadowRay.origin = intersectionPoint + bias * shadowRay.direction;
         HitInfo shadowHitInfo;
         bool hit = state.bvh.intersect(state,shadowRay, shadowHitInfo);
         float t = glm::length(lightPosition - intersectionPoint);
@@ -106,15 +106,14 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
     float t = glm::length(intersectionPoint - lightPosition);
     HitInfo shadowHitInfo;
     glm::vec3 shadowedLightColor = lightColor;
-    while (state.bvh.intersect(state, lightRay, shadowHitInfo)&&lightRay.t<t) {
+    while (state.bvh.intersect(state, lightRay, shadowHitInfo)&&lightRay.t<t+bias) {
         float trans = shadowHitInfo.material.transparency;
-        if (trans<=FLT_EPSILON) {
-			return glm::vec3(0);
-		}
-        if (trans < 1.0f- FLT_EPSILON) {
-            shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * trans;           
+        if (trans < bias) {
+            return glm::vec3(0);
         }
-        lightRay.origin = lightRay.origin + (lightRay.t + FLT_EPSILON*40) * lightRay.direction;
+        shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * trans;           
+        lightRay.origin = lightRay.origin + (lightRay.t + bias) * lightRay.direction;
+        t -= lightRay.t;
         lightRay.t = std::numeric_limits<float>::max();
     }
     return shadowedLightColor;
