@@ -400,9 +400,13 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
         //        std::cout << "leaf: " << primitives.size() << std::endl;
         return;
     }
-
     const uint32_t axis = computeAABBLongestAxis(aabb);
-    const auto splitIndex = splitPrimitivesByMedian(aabb, axis, primitives);
+    size_t splitIndex;
+    if (!features.extra.enableBvhSahBinning) {
+        splitIndex = splitPrimitivesByMedian(aabb, axis, primitives);
+    } else {
+        splitIndex = splitPrimitivesBySAHBin(aabb, axis, primitives);
+    }
 
     const uint32_t leftIdx = nextNodeIdx();
     const uint32_t rightIdx = nextNodeIdx();

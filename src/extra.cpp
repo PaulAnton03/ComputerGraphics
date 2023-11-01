@@ -439,11 +439,12 @@ struct SAHBin {
 // This method is unit-tested, so do not change the function signature.
 size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
 {
-    if (primitives.empty())
-        return 0;
     using Primitive = BVH::Primitive;
     const size_t numBins = 16;
     SAHBin bins[numBins];
+    std::sort(primitives.begin(), primitives.end(), [&](const Primitive& a, const Primitive& b) {
+        return computePrimitiveCentroid(a)[axis] < computePrimitiveCentroid(b)[axis];
+    });
     for (const Primitive& primitive : primitives) {
         glm::vec3 centroid = computePrimitiveCentroid(primitive);
         int binIndex = static_cast<int>((centroid[axis] - aabb.lower[axis]) / (aabb.upper[axis] - aabb.lower[axis]) * numBins);
@@ -484,5 +485,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
         }
     }
 
+    if (bestSplitIndex == 0 || bestSplitIndex == 15)
+		return splitPrimitivesByMedian(aabb,axis,primitives);
     return bins[bestSplitIndex].leftCount;
 }
