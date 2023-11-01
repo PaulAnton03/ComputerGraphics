@@ -167,6 +167,22 @@ void drawAABB(const AxisAlignedBox& box, DrawMode drawMode, const glm::vec3& col
     glPopAttrib();
 }
 
+void drawLine(const std::span<glm::vec3> points) {
+    if (!enableDebugDraw)
+        return;
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glDisable(GL_LIGHTING);
+    glBegin(GL_LINE_STRIP);
+    glColor3f(1.0f, 0.0f, 0.0f);
+
+    for (glm::vec3& p : points) {
+        glVertex3f(p.x,p.y,p.z);
+    }
+    glEnd();
+
+    glPopAttrib();
+}
+
 void drawScene(const Scene& scene)
 {
     for (const auto& mesh : scene.meshes)
