@@ -360,7 +360,7 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
         float angle = 2.0f * glm::pi<float>() * sample.x;
         glm::vec3 rs = glm::normalize(r + u* radius* std::cos(angle) + v* radius* std::sin(angle));
         if (glm::dot(n, rs) > 0.0f) {
-            Ray glossyRay = Ray(intersectionPoint + FLT_EPSILON * rs, rs);
+            Ray glossyRay = Ray(intersectionPoint + 0.001f * rs, rs);
             ac += renderRay(state, glossyRay, rayDepth + 1);
         }
     }
@@ -451,13 +451,9 @@ float calculateAreaOfAABB(const AxisAlignedBox& aabb)
 {
     glm::vec3 dimensions = aabb.upper - aabb.lower;
     float area1 = dimensions.x * dimensions.y;
-    float area2 = dimensions.x * dimensions.y;
-    float area3 = dimensions.x * dimensions.z;
-    float area4 = dimensions.x * dimensions.z;
-    float area5 = dimensions.y * dimensions.z;
-    float area6 = dimensions.y * dimensions.z;
-    float totalArea = area1 + area2 + area3 + area4 + area5 + area6;
-    return totalArea;
+    float area2 = dimensions.x * dimensions.z;
+    float area3 = dimensions.y * dimensions.z;
+    return 2 * (area1 + area2 + area3);
 }
 
 // Struct for SAH binning
@@ -468,7 +464,6 @@ struct SAHBin {
 	size_t count=0;
     size_t leftCount;
     size_t rightCount;
-    std::span<BVH::Primitive> primitives;
 };
 
 // TODO: Extra feature
@@ -484,12 +479,14 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     using Primitive = BVH::Primitive;
     const size_t numBins = 16;
     SAHBin bins[numBins];
+    std::sort(primitives.begin(), primitives.end(), [&](const Primitive& a, const Primitive& b) {
+        return computePrimitiveCentroid(a)[axis] < computePrimitiveCentroid(b)[axis];
+    });
     for (const Primitive& primitive : primitives) {
         glm::vec3 centroid = computePrimitiveCentroid(primitive);
         int binIndex = static_cast<int>((centroid[axis] - aabb.lower[axis]) / (aabb.upper[axis] - aabb.lower[axis]) * numBins);
         binIndex = std::clamp(binIndex, 0, static_cast<int> (numBins) - 1);
         AxisAlignedBox paabb = computePrimitiveAABB(primitive);
-
         bins[binIndex].aabb.lower = elementWiseMin(bins[binIndex].aabb.lower, paabb.lower);
         bins[binIndex].aabb.upper = elementWiseMax(bins[binIndex].aabb.upper, paabb.upper);
         bins[binIndex].count++;
@@ -519,16 +516,13 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 
         float cost = bins[i].leftCount * calculateAreaOfAABB(bins[i].leftAABB) + bins[i + 1].rightCount * calculateAreaOfAABB(bins[i+1].rightAABB);
 
-        if (cost < bestSplitCost) {
+        if (bins[i].leftCount!=0 && bins[i+1].rightCount!=0 && cost < bestSplitCost) {
             bestSplitCost = cost;
             bestSplitIndex = i;
         }
-
-        if (bins[i].leftCount == 0 || bins[i+1].rightCount==0) {
-            bestSplitIndex = i;
-            break;
-        }
     }
 
-    return bins[bestSplitIndex].leftCount; // Return the split position
+    if (bestSplitIndex == 0 || bestSplitIndex == 15)
+		return splitPrimitivesByMedian(aabb,axis,primitives);
+    return bins[bestSplitIndex].leftCount;
 }
