@@ -299,9 +299,8 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     } else {
         // Naive implementation; simply iterates over all primitives
         for (const auto& prim : primitives) {
-            
             /* addition for motion blur*/
-            if (state.scene.meshes[prim.meshID].moveable) {
+            if (state.features.extra.enableMotionBlur && state.scene.meshes[prim.meshID].moveable) {
                 auto [v0, v1, v2] = std::make_tuple(prim.v0, prim.v1, prim.v2);
                 v0.position = ((1.f - ray.time) * (1.f - ray.time)) * v0.position + 2 * ray.time * (1 - ray.time) * (v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v0.position + state.scene.meshes[prim.meshID].p2);
                 v1.position = ((1.f - ray.time) * (1.f - ray.time)) * v1.position + 2 * ray.time * (1 - ray.time) * (v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v1.position + state.scene.meshes[prim.meshID].p2);
@@ -318,18 +317,17 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
                     is_hit = true;
                 }
             }
-            
         }
     }
 
     // Intersect with spheres.
     for (const auto& sphere : state.scene.spheres) {
-        if (sphere.moveable) {
+        if (state.features.extra.enableMotionBlur && sphere.moveable) {
             Sphere s = sphere;
             s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + sphere.p1) + ray.time * ray.time * (sphere.center + sphere.p2);
-            is_hit |= intersectRayWithShape(s, ray, hitInfo);     
+            is_hit |= intersectRayWithShape(s, ray, hitInfo);
         } else {
-            is_hit |= intersectRayWithShape(sphere, ray, hitInfo); 
+            is_hit |= intersectRayWithShape(sphere, ray, hitInfo);
         }
     }
 
@@ -420,12 +418,7 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     // TODO: Extra feature SAH-Binning
 
     if (primitives.size() <= LeafSize) {
-        //// motionblur addition:
-        //if (features.extra.enableMotionBlur) {
-        //    aabb = computeSpanAABBMotionBlur(primitives, scene);
-        //}
         m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
-        //        std::cout << "leaf: " << primitives.size() << std::endl;
         return;
     }
     const uint32_t axis = computeAABBLongestAxis(aabb);
@@ -438,21 +431,10 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     const uint32_t leftIdx = nextNodeIdx();
     const uint32_t rightIdx = nextNodeIdx();
-    // motionblur addition:
- /*   if (features.extra.enableMotionBlur) {
-        aabb = computeSpanAABBMotionBlur(primitives, scene);
-    }*/
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftIdx, rightIdx);
-    //    if (primitives.size() < 10) {
-    //        std::cout << "axis: " << axis << std::endl;
-    //        for (Primitive p : primitives) {
-    //            std::cout << (computePrimitiveCentroid(p)).x << ", " << (computePrimitiveCentroid(p)).y << ", " << (computePrimitiveCentroid(p)).z << std::endl;
-    //        }
-    //    }
 
     auto Rspan = primitives.subspan(splitIndex, primitives.size() - splitIndex);
     auto Lspan = primitives.subspan(0, splitIndex);
-    //    std::cout << "T: " << primitives.size() << " L: " << Lspan.size() << " R: " << Rspan.size() << std::endl;
 
     buildRecursive(scene, features, Rspan, rightIdx);
     buildRecursive(scene, features, Lspan, leftIdx);
@@ -504,7 +486,6 @@ void BVH::buildNumLeaves()
 // You are free to modify this function's signature.
 void BVH::debugDrawLevel(int level)
 {
-    // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
     // colors, transparencies, etc.
     std::queue<uint32_t> childQueue {};
@@ -540,7 +521,6 @@ void BVH::debugDrawLevel(int level)
 // You are free to modify this function's signature.
 void BVH::debugDrawLeaf(int leafIndex)
 {
-    // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use drawTriangle (see `draw.h`) to draw the contained primitives
     auto index = (uint32_t)leafIndex;
     if (leafIndex < 0 || index > m_numLeaves)
