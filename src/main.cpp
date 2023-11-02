@@ -206,7 +206,7 @@ int main(int argc, char** argv)
                     ImGui::SliderFloat("Aperture/ F-stop", &config.features.extra.aperture, 1.f, 25.f);
                     ImGui::Checkbox("Enable Auto Focus", &config.features.extra.AutoFocus);
                     ImGui::SliderFloat("Manual Focus Distance", &config.features.extra.focusDistance, 0.f, 10.f);
-                    uint32_t minSamples = 1u, maxSamples = 32u;
+                    uint32_t minSamples = 1u, maxSamples = 64u;
                     ImGui::SliderScalar("Ray samples", ImGuiDataType_U32, &config.features.extra.DOFSamples, &minSamples, &maxSamples);
                     // Add DOF settings here, if necessary
                     ImGui::Unindent();
