@@ -226,7 +226,6 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     // Relevant data in the constructed BVH
     std::span<const BVHInterface::Node> nodes = bvh.nodes();
     std::span<const BVHInterface::Primitive> primitives = bvh.primitives();
-
     // Return value
     bool is_hit = false;
 
@@ -251,23 +250,48 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         std::stack<uint32_t> stack;
         stack.push(0);
         while (!stack.empty()) {
-            const BVHInterface::Node& node = nodes[stack.top()];
-            stack.pop();
-            float t = ray.t;
-            ray.t = std::numeric_limits<float>::max();
-            bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f, .upper = node.aabb.upper + 0.0000001f }, ray);
-            ray.t = t;
-            if (intersectAABB) {
-                if (node.isLeaf()) {
-                    for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
-                        if (intersectRayWithTriangle(prim.v0.position, prim.v1.position, prim.v2.position, ray, hitInfo)) {
-                            updateHitInfo(state, prim, ray, hitInfo);
-                            is_hit = true;
+            if (state.features.extra.enableMotionBlur) {
+                const BVHInterface::Node& node = nodes[stack.top()];
+                stack.pop();
+                float t = ray.t;
+                ray.t = std::numeric_limits<float>::max();
+                glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
+                glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
+                float time = ray.time;
+                bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f + 2 * time * (1 - time) * (p1) + time * time * (p2), .upper = node.aabb.upper + 0.0000001f + 2 * time * (1 - time) * (p1) + time * time * (p2) }, ray);
+                ray.t = t;
+                if (intersectAABB) {
+                    if (node.isLeaf()) {
+                        for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
+                            if (intersectRayWithTriangle(((1.f - ray.time) * (1.f - ray.time)) * prim.v0.position + 2 * ray.time * (1 - ray.time) * (prim.v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v0.position + state.scene.meshes[prim.meshID].p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v1.position + 2 * ray.time * (1 - ray.time) * (prim.v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v1.position + state.scene.meshes[prim.meshID].p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v2.position + 2 * ray.time * (1 - ray.time) * (prim.v2.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v2.position + state.scene.meshes[prim.meshID].p2), ray, hitInfo)) {
+                                updateHitInfo(state, prim, ray, hitInfo);
+                                is_hit = true;
+                            }
                         }
+                    } else {
+                        stack.push(node.leftChild());
+                        stack.push(node.rightChild());
                     }
-                } else {
-                    stack.push(node.leftChild());
-                    stack.push(node.rightChild());
+                }
+            } else {
+                const BVHInterface::Node& node = nodes[stack.top()];
+                stack.pop();
+                float t = ray.t;
+                ray.t = std::numeric_limits<float>::max();
+                bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f, .upper = node.aabb.upper + 0.0000001f }, ray);
+                ray.t = t;
+                if (intersectAABB) {
+                    if (node.isLeaf()) {
+                        for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
+                            if (intersectRayWithTriangle(prim.v0.position, prim.v1.position, prim.v2.position, ray, hitInfo)) {
+                                updateHitInfo(state, prim, ray, hitInfo);
+                                is_hit = true;
+                            }
+                        }
+                    } else {
+                        stack.push(node.leftChild());
+                        stack.push(node.rightChild());
+                    }
                 }
             }
         }
@@ -396,6 +420,10 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     // TODO: Extra feature SAH-Binning
 
     if (primitives.size() <= LeafSize) {
+        //// motionblur addition:
+        //if (features.extra.enableMotionBlur) {
+        //    aabb = computeSpanAABBMotionBlur(primitives, scene);
+        //}
         m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
         //        std::cout << "leaf: " << primitives.size() << std::endl;
         return;
@@ -410,7 +438,10 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     const uint32_t leftIdx = nextNodeIdx();
     const uint32_t rightIdx = nextNodeIdx();
-
+    // motionblur addition:
+ /*   if (features.extra.enableMotionBlur) {
+        aabb = computeSpanAABBMotionBlur(primitives, scene);
+    }*/
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftIdx, rightIdx);
     //    if (primitives.size() < 10) {
     //        std::cout << "axis: " << axis << std::endl;

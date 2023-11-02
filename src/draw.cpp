@@ -56,6 +56,24 @@ void drawTriangle (const Vertex& v0, const Vertex& v1, const Vertex& v2 ) {
     glEnd();
 }
 
+void drawTriangleMotion(const Vertex& v0, const Vertex& v1, const Vertex& v2)
+{
+    if (!enableDebugDraw)
+        return;
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBegin(GL_TRIANGLES);
+    glColor4f( 1.f, 1.f, 1.f, .5f );
+    glNormal3fv(glm::value_ptr(v0.normal));
+    glVertex3fv(glm::value_ptr(v0.position));
+    glNormal3fv(glm::value_ptr(v1.normal));
+    glVertex3fv(glm::value_ptr(v1.position));
+    glNormal3fv(glm::value_ptr(v2.normal));
+    glVertex3fv(glm::value_ptr(v2.position));
+    glEnd();
+    glDisable(GL_BLEND);
+}
+
 void drawMesh(const Mesh& mesh)
 {
     setMaterial(mesh.material);
