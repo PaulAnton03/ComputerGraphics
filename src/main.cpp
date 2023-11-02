@@ -220,6 +220,7 @@ int main(int argc, char** argv)
                     ImGui::SliderFloat("Bezier Offset 2 X", &config.features.extra.bezierOffset2x, -.25f, .25f);
                     ImGui::SliderFloat("Bezier Offset 2 Y", &config.features.extra.bezierOffset2y, -.25f, .25f);
                     ImGui::SliderFloat("Bezier Offset 2 Z", &config.features.extra.bezierOffset2z, -.25f, .25f);
+                    ImGui::SliderInt("Samples", &config.features.extra.motionblurSamples, 1, 2048);
                     // Add motion blur settings here, if necessary
                     ImGui::Unindent();
                 }

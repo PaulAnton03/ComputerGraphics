@@ -226,7 +226,6 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     // Relevant data in the constructed BVH
     std::span<const BVHInterface::Node> nodes = bvh.nodes();
     std::span<const BVHInterface::Primitive> primitives = bvh.primitives();
-
     // Return value
     bool is_hit = false;
 
@@ -251,23 +250,48 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         std::stack<uint32_t> stack;
         stack.push(0);
         while (!stack.empty()) {
-            const BVHInterface::Node& node = nodes[stack.top()];
-            stack.pop();
-            float t = ray.t;
-            ray.t = std::numeric_limits<float>::max();
-            bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f, .upper = node.aabb.upper + 0.0000001f }, ray);
-            ray.t = t;
-            if (intersectAABB) {
-                if (node.isLeaf()) {
-                    for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
-                        if (intersectRayWithTriangle(prim.v0.position, prim.v1.position, prim.v2.position, ray, hitInfo)) {
-                            updateHitInfo(state, prim, ray, hitInfo);
-                            is_hit = true;
+            if (state.features.extra.enableMotionBlur) {
+                const BVHInterface::Node& node = nodes[stack.top()];
+                stack.pop();
+                float t = ray.t;
+                ray.t = std::numeric_limits<float>::max();
+                glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
+                glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
+                float time = ray.time;
+                bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f + 2 * time * (1 - time) * (p1) + time * time * (p2), .upper = node.aabb.upper + 0.0000001f + 2 * time * (1 - time) * (p1) + time * time * (p2) }, ray);
+                ray.t = t;
+                if (intersectAABB) {
+                    if (node.isLeaf()) {
+                        for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
+                            if (intersectRayWithTriangle(((1.f - ray.time) * (1.f - ray.time)) * prim.v0.position + 2 * ray.time * (1 - ray.time) * (prim.v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v0.position + state.scene.meshes[prim.meshID].p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v1.position + 2 * ray.time * (1 - ray.time) * (prim.v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v1.position + state.scene.meshes[prim.meshID].p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v2.position + 2 * ray.time * (1 - ray.time) * (prim.v2.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v2.position + state.scene.meshes[prim.meshID].p2), ray, hitInfo)) {
+                                updateHitInfo(state, prim, ray, hitInfo);
+                                is_hit = true;
+                            }
                         }
+                    } else {
+                        stack.push(node.leftChild());
+                        stack.push(node.rightChild());
                     }
-                } else {
-                    stack.push(node.leftChild());
-                    stack.push(node.rightChild());
+                }
+            } else {
+                const BVHInterface::Node& node = nodes[stack.top()];
+                stack.pop();
+                float t = ray.t;
+                ray.t = std::numeric_limits<float>::max();
+                bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f, .upper = node.aabb.upper + 0.0000001f }, ray);
+                ray.t = t;
+                if (intersectAABB) {
+                    if (node.isLeaf()) {
+                        for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
+                            if (intersectRayWithTriangle(prim.v0.position, prim.v1.position, prim.v2.position, ray, hitInfo)) {
+                                updateHitInfo(state, prim, ray, hitInfo);
+                                is_hit = true;
+                            }
+                        }
+                    } else {
+                        stack.push(node.leftChild());
+                        stack.push(node.rightChild());
+                    }
                 }
             }
         }
@@ -275,9 +299,8 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     } else {
         // Naive implementation; simply iterates over all primitives
         for (const auto& prim : primitives) {
-            
             /* addition for motion blur*/
-            if (state.scene.meshes[prim.meshID].moveable) {
+            if (state.features.extra.enableMotionBlur && state.scene.meshes[prim.meshID].moveable) {
                 auto [v0, v1, v2] = std::make_tuple(prim.v0, prim.v1, prim.v2);
                 v0.position = ((1.f - ray.time) * (1.f - ray.time)) * v0.position + 2 * ray.time * (1 - ray.time) * (v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v0.position + state.scene.meshes[prim.meshID].p2);
                 v1.position = ((1.f - ray.time) * (1.f - ray.time)) * v1.position + 2 * ray.time * (1 - ray.time) * (v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v1.position + state.scene.meshes[prim.meshID].p2);
@@ -294,18 +317,17 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
                     is_hit = true;
                 }
             }
-            
         }
     }
 
     // Intersect with spheres.
     for (const auto& sphere : state.scene.spheres) {
-        if (sphere.moveable) {
+        if (state.features.extra.enableMotionBlur && sphere.moveable) {
             Sphere s = sphere;
             s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + sphere.p1) + ray.time * ray.time * (sphere.center + sphere.p2);
-            is_hit |= intersectRayWithShape(s, ray, hitInfo);     
+            is_hit |= intersectRayWithShape(s, ray, hitInfo);
         } else {
-            is_hit |= intersectRayWithShape(sphere, ray, hitInfo); 
+            is_hit |= intersectRayWithShape(sphere, ray, hitInfo);
         }
     }
 
@@ -397,7 +419,6 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     if (primitives.size() <= LeafSize) {
         m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
-        //        std::cout << "leaf: " << primitives.size() << std::endl;
         return;
     }
     const uint32_t axis = computeAABBLongestAxis(aabb);
@@ -410,18 +431,10 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     const uint32_t leftIdx = nextNodeIdx();
     const uint32_t rightIdx = nextNodeIdx();
-
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftIdx, rightIdx);
-    //    if (primitives.size() < 10) {
-    //        std::cout << "axis: " << axis << std::endl;
-    //        for (Primitive p : primitives) {
-    //            std::cout << (computePrimitiveCentroid(p)).x << ", " << (computePrimitiveCentroid(p)).y << ", " << (computePrimitiveCentroid(p)).z << std::endl;
-    //        }
-    //    }
 
     auto Rspan = primitives.subspan(splitIndex, primitives.size() - splitIndex);
     auto Lspan = primitives.subspan(0, splitIndex);
-    //    std::cout << "T: " << primitives.size() << " L: " << Lspan.size() << " R: " << Rspan.size() << std::endl;
 
     buildRecursive(scene, features, Rspan, rightIdx);
     buildRecursive(scene, features, Lspan, leftIdx);
@@ -473,7 +486,6 @@ void BVH::buildNumLeaves()
 // You are free to modify this function's signature.
 void BVH::debugDrawLevel(int level)
 {
-    // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
     // colors, transparencies, etc.
     std::queue<uint32_t> childQueue {};
@@ -509,7 +521,6 @@ void BVH::debugDrawLevel(int level)
 // You are free to modify this function's signature.
 void BVH::debugDrawLeaf(int leafIndex)
 {
-    // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use drawTriangle (see `draw.h`) to draw the contained primitives
     auto index = (uint32_t)leafIndex;
     if (leafIndex < 0 || index > m_numLeaves)

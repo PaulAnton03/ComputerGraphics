@@ -94,6 +94,7 @@ struct ExtraFeatures {
     float bezierOffset2x = 0;
     float bezierOffset2y = 0;
     float bezierOffset2z = 0;
+    int motionblurSamples = 3;
 
 };
 
