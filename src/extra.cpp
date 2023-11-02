@@ -264,10 +264,11 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 
     std::vector<glm::vec3>& pixels = image.pixels();
     std::vector<glm::vec3> thresholdPixels = {};
+    glm::vec3 luminanceFactor = glm::vec3(0.2126f, 0.7152f, 0.0722f);
 
     thresholdPixels.reserve(pixels.size());
     for (glm::vec3 P : pixels) {
-        if (P.x > features.extra.bloomThreshold || P.y > features.extra.bloomThreshold || P.z > features.extra.bloomThreshold)
+        if (glm::dot(P, luminanceFactor) > features.extra.bloomThreshold)
             thresholdPixels.push_back(P - features.extra.bloomThreshold);
         else
             thresholdPixels.push_back(glm::vec3(0.f));
