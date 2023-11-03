@@ -40,11 +40,6 @@ struct Mesh {
 	std::vector<glm::uvec3> triangles;
 
 	Material material;
-
-	/* added for motion blur*/
-	glm::vec3 p1;
-    glm::vec3 p2;
-    bool moveable { false };
 };
 
 [[nodiscard]] std::vector<Mesh> loadMesh(const std::filesystem::path& file, bool normalize = false);

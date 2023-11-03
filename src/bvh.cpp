@@ -250,6 +250,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         std::stack<uint32_t> stack;
         stack.push(0);
         while (!stack.empty()) {
+            // check if motion blur is enabled, to handle different AABB cases
             if (state.features.extra.enableMotionBlur) {
                 const BVHInterface::Node& node = nodes[stack.top()];
                 stack.pop();
@@ -258,12 +259,18 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
                 glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
                 glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
                 float time = ray.time;
-                bool intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f + 2 * time * (1 - time) * (p1) + time * time * (p2), .upper = node.aabb.upper + 0.0000001f + 2 * time * (1 - time) * (p1) + time * time * (p2) }, ray);
+                bool intersectAABB = false;
+                if (state.features.extra.refitAABB) { // check if the AABB has to be refitted
+                    intersectAABB = intersectRayWithShape({ .lower = ((1.f - ray.time) * (1.f - ray.time)) * node.aabb.lower + 2 * ray.time * (1 - ray.time) * (node.aabb.lower + p1) + ray.time * ray.time * (node.aabb.lower + p2) - 0.0000001f, .upper = ((1.f - ray.time) * (1.f - ray.time)) * node.aabb.upper + 2 * ray.time * (1 - ray.time) * (node.aabb.upper + p1) + ray.time * ray.time * (node.aabb.upper + p2) + 0.0000001f }, ray);
+                } else { // AABB already binds the whole path
+                    intersectAABB = intersectRayWithShape({ .lower = node.aabb.lower - 0.0000001f, .upper = node.aabb.upper + 0.0000001f }, ray);
+                }
                 ray.t = t;
                 if (intersectAABB) {
                     if (node.isLeaf()) {
                         for (const auto& prim : primitives.subspan(node.primitiveOffset(), node.primitiveCount())) {
-                            if (intersectRayWithTriangle(((1.f - ray.time) * (1.f - ray.time)) * prim.v0.position + 2 * ray.time * (1 - ray.time) * (prim.v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v0.position + state.scene.meshes[prim.meshID].p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v1.position + 2 * ray.time * (1 - ray.time) * (prim.v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v1.position + state.scene.meshes[prim.meshID].p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v2.position + 2 * ray.time * (1 - ray.time) * (prim.v2.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (prim.v2.position + state.scene.meshes[prim.meshID].p2), ray, hitInfo)) {
+                            // add the bezier offset to each point and call the intersectRayWithTraingle method
+                            if (intersectRayWithTriangle(((1.f - ray.time) * (1.f - ray.time)) * prim.v0.position + 2 * ray.time * (1 - ray.time) * (prim.v0.position + p1) + ray.time * ray.time * (prim.v0.position+p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v1.position + 2 * ray.time * (1 - ray.time) * (prim.v1.position + p1) + ray.time * ray.time * (prim.v1.position + p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v2.position + 2 * ray.time * (1 - ray.time) * (prim.v2.position + p1) + ray.time * ray.time * (prim.v2.position + p2), ray, hitInfo)) {
                                 updateHitInfo(state, prim, ray, hitInfo);
                                 is_hit = true;
                             }
@@ -297,6 +304,15 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         }
 
     } else {
+<<<<<<< HEAD
+        if (state.features.extra.enableMotionBlur) { // check if motionblur is enabled
+            glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
+            glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
+            for (const auto& prim : primitives) {
+                float time = ray.time;
+                // add bezier offset to each point and call intersectRayWithTriangle
+                if (intersectRayWithTriangle(((1.f - ray.time) * (1.f - ray.time)) * prim.v0.position + 2 * ray.time * (1 - ray.time) * (prim.v0.position + p1) + ray.time * ray.time * p2, ((1.f - ray.time) * (1.f - ray.time)) * prim.v1.position + 2 * ray.time * (1 - ray.time) * (prim.v1.position + p1) + ray.time * ray.time * (prim.v1.position + p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v2.position + 2 * ray.time * (1 - ray.time) * (prim.v2.position + p1) + ray.time * ray.time * (prim.v2.position + p2), ray, hitInfo)) {
+=======
         // Naive implementation; simply iterates over all primitives
         for (const auto& prim : primitives) {
             /* addition for motion blur*/
@@ -306,10 +322,16 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
                 v1.position = ((1.f - ray.time) * (1.f - ray.time)) * v1.position + 2 * ray.time * (1 - ray.time) * (v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v1.position + state.scene.meshes[prim.meshID].p2);
                 v2.position = ((1.f - ray.time) * (1.f - ray.time)) * v2.position + 2 * ray.time * (1 - ray.time) * (v2.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v2.position + state.scene.meshes[prim.meshID].p2);
                 if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
+>>>>>>> main
                     updateHitInfo(state, prim, ray, hitInfo);
                     is_hit = true;
                 }
-            } else {
+            }
+        } else {
+
+        // Naive implementation; simply iterates over all primitives
+            for (const auto& prim : primitives) {
+            
                 const auto& [v0, v1, v2] = std::make_tuple(prim.v0, prim.v1, prim.v2);
 
                 if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
@@ -322,10 +344,20 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
 
     // Intersect with spheres.
     for (const auto& sphere : state.scene.spheres) {
+<<<<<<< HEAD
+        if (state.features.extra.enableMotionBlur) { // check if sphere should move
+            glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
+            glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
+            Sphere s = sphere;
+            // add bezier offset
+            s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + p1) + ray.time * ray.time * (sphere.center + p2);
+            is_hit |= intersectRayWithShape(s, ray, hitInfo);     
+=======
         if (state.features.extra.enableMotionBlur && sphere.moveable) {
             Sphere s = sphere;
             s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + sphere.p1) + ray.time * ray.time * (sphere.center + sphere.p2);
             is_hit |= intersectRayWithShape(s, ray, hitInfo);
+>>>>>>> main
         } else {
             is_hit |= intersectRayWithShape(sphere, ray, hitInfo);
         }
@@ -417,6 +449,45 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     // TODO: Extra feature SAH-Binning
 
+    /* 
+        incase motion blur is enabled and an aabb is required to bound the entire path
+        increase the minimum and maximum of the aabb to fit the entire path
+    */
+    if (features.extra.enableMotionBlur && !features.extra.refitAABB) {
+        glm::vec3 p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
+        glm::vec3 p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
+        glm::vec3 denom = p2 - 2.f * p1;
+        glm::vec3 pos3 = glm::vec3{ 0 };
+        if (denom.x != 0) {
+            pos3.x = - p1.x / denom.x;
+            if (pos3.x < 0) {
+                pos3.x = 0;
+            } else if (pos3.x > 1) {
+                pos3.x = 1;
+            }
+            pos3.x = p1.x * 2.f * pos3.x * (1 - pos3.x) + p2.x * pos3.x * pos3.x;
+        }
+        if (denom.y != 0) {
+            pos3.y = -p1.y / denom.y;
+            if (pos3.y < 0) {
+                pos3.y = 0;
+            } else if (pos3.y > 1) {
+                pos3.y = 1;
+            }
+            pos3.y = p1.y * 2.f * pos3.y * (1 - pos3.y) + p2.y * pos3.y * pos3.y;
+        }
+        if (denom.z != 0) {
+            pos3.z = -p1.z / denom.z;
+            if (pos3.z < 0) {
+                pos3.z = 0;
+            } else if (pos3.z > 1) {
+                pos3.z = 1;
+            }
+            pos3.z = p1.z * 2.f * pos3.z * (1 - pos3.x) + p2.z * pos3.z * pos3.z;
+        }
+        aabb.lower += minOfThree(p2, glm::vec3 { 0 }, pos3);
+        aabb.upper += maxOfThree(p2, glm::vec3 { 0 }, pos3);
+    }
     if (primitives.size() <= LeafSize) {
         m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
         return;

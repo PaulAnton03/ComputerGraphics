@@ -48,7 +48,9 @@ static void setOpenGLMatrices(const Trackball& camera);
 static void drawLightsOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 static void drawSceneOpenGL(const Scene& scene);
 bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max);
-
+glm::vec3 previousBezierP1 = glm::vec3 { 0 };
+glm::vec3 previousBezierP2 = glm::vec3 { 0 };
+bool newBVHNeeded = false;
 int main(int argc, char** argv)
 {
     Config config = {};
@@ -182,7 +184,7 @@ int main(int argc, char** argv)
                 ImGui::Separator(); // Pixel sampling does not have an accompanying toggle
                 {
                     ImGui::Checkbox("Jittered sampling", &config.features.enableJitteredSampling);
-                    uint32_t minSamples = 1u, maxSamples = 1024u;
+                    uint32_t minSamples = 1u, maxSamples = 64u;
                     ImGui::SliderScalar("Pixel samples", ImGuiDataType_U32, &config.features.numPixelSamples, &minSamples, &maxSamples);
                 }
             }
@@ -214,13 +216,16 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Motion blur", &config.features.extra.enableMotionBlur);
                 if (config.features.extra.enableMotionBlur) {
                     ImGui::Indent();
-                    ImGui::SliderFloat("Bezier Offset 1 X", &config.features.extra.bezierOffset1x, -.25f, .25f);
-                    ImGui::SliderFloat("Bezier Offset 1 Y", &config.features.extra.bezierOffset1y, -.25f, .25f);
-                    ImGui::SliderFloat("Bezier Offset 1 Z", &config.features.extra.bezierOffset1z, -.25f, .25f);
-                    ImGui::SliderFloat("Bezier Offset 2 X", &config.features.extra.bezierOffset2x, -.25f, .25f);
-                    ImGui::SliderFloat("Bezier Offset 2 Y", &config.features.extra.bezierOffset2y, -.25f, .25f);
-                    ImGui::SliderFloat("Bezier Offset 2 Z", &config.features.extra.bezierOffset2z, -.25f, .25f);
+                    ImGui::SliderFloat("Bezier Offset 1 X", &config.features.extra.bezierOffset1x, -2.f, 2.f);
+                    ImGui::SliderFloat("Bezier Offset 1 Y", &config.features.extra.bezierOffset1y, -2.f, 2.f);
+                    ImGui::SliderFloat("Bezier Offset 1 Z", &config.features.extra.bezierOffset1z, -2.f, 2.f);
+                    ImGui::SliderFloat("Bezier Offset 2 X", &config.features.extra.bezierOffset2x, -2.f, 2.f);
+                    ImGui::SliderFloat("Bezier Offset 2 Y", &config.features.extra.bezierOffset2y, -2.f, 2.f);
+                    ImGui::SliderFloat("Bezier Offset 2 Z", &config.features.extra.bezierOffset2z, -2.f, 2.f);
                     ImGui::SliderInt("Samples", &config.features.extra.motionblurSamples, 1, 2048);
+                    // Inside your ImGui rendering loop:
+                    ImGui::RadioButton("Refit AABB's", &config.features.extra.refitAABB,1);
+                    ImGui::RadioButton("Bound Entire Path", &config.features.extra.refitAABB, 0);
                     // Add motion blur settings here, if necessary
                     ImGui::Unindent();
                 }
@@ -389,6 +394,20 @@ int main(int argc, char** argv)
                 selectedLightIdx = -1;
             }
 
+            if (&config.features.extra.enableMotionBlur) {
+                if (config.features.extra.refitAABB && newBVHNeeded) {
+                    bvh = BVH(scene, config.features);
+                    newBVHNeeded = false;
+                }
+                if (previousBezierP1.x != config.features.extra.bezierOffset1x || previousBezierP1.y != config.features.extra.bezierOffset1y || previousBezierP1.z != config.features.extra.bezierOffset1z || previousBezierP2.x != config.features.extra.bezierOffset2x || previousBezierP2.y != config.features.extra.bezierOffset2y || previousBezierP2.z != config.features.extra.bezierOffset2z) {
+                    bvh = BVH(scene, config.features);
+                    newBVHNeeded = true;
+                }       
+            } else {
+                previousBezierP1 = glm::vec3 { 0 };
+                previousBezierP2 = glm::vec3 { 0 };
+            }
+
             // Clear screen.
             glViewport(0, 0, window.getFrameBufferSize().x, window.getFrameBufferSize().y);
             glClearDepth(1.0);
@@ -444,7 +463,7 @@ int main(int argc, char** argv)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
                     if (debugFocusDistance)
                         DOFDebugDrawFocusPoint(scene, bvh, config.features, camera);
-                    if (motionblurDebug)
+                    if (motionblurDebug && &config.features.extra.enableMotionBlur)
                         drawMotionblurPath(scene, bvh, config.features, camera,screen);
                     enableDebugDraw = false;
                     glPopAttrib();

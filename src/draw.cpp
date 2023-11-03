@@ -56,6 +56,9 @@ void drawTriangle (const Vertex& v0, const Vertex& v1, const Vertex& v2 ) {
     glEnd();
 }
 
+/*
+    Method added to draw all traingles for the motion blur debug
+*/
 void drawTriangleMotion(const Vertex& v0, const Vertex& v1, const Vertex& v2)
 {
     if (!enableDebugDraw)
@@ -185,6 +188,9 @@ void drawAABB(const AxisAlignedBox& box, DrawMode drawMode, const glm::vec3& col
     glPopAttrib();
 }
 
+/*
+    Method added to draw a line to show the bezier curve for motion blur
+*/
 void drawLine(const std::span<glm::vec3> points) {
     if (!enableDebugDraw)
         return;
