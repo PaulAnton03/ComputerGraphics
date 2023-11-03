@@ -40,10 +40,6 @@ struct Sphere {
     glm::vec3 center { 0.0f };
     float radius = 1.0f;
     Material material;
-    /* added for motion blur*/
-    glm::vec3 p1 { 0.0f };
-    glm::vec3 p2 { 0.0f };
-    bool moveable { false };
 }
 ;
 
@@ -95,6 +91,7 @@ struct ExtraFeatures {
     float bezierOffset2y = 0;
     float bezierOffset2z = 0;
     int motionblurSamples = 1;
+    int refitAABB = 1;
 
 };
 

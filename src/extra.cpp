@@ -100,22 +100,9 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
     }
 }
 
-Scene updateScene(const Scene& scene, const Features& features)
-{
-    Scene scene2 = scene;
-    for (Mesh& m : scene2.meshes) {
-        m.p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
-        m.p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
-        m.moveable = true;
-    }
-    for (Sphere& s : scene2.spheres) {
-        s.p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
-        s.p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
-        s.moveable = true;
-    }
-    return scene2;
-}
-
+/* Method that draws the bezier curve originating from each vertex for traingles and each centroid for spheres
+   to show its movement
+*/
 void drawMovementLine(glm::vec3 p, const Features& features) {
     std::vector<glm::vec3> points = {};
     glm::vec3 p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
@@ -126,6 +113,9 @@ void drawMovementLine(glm::vec3 p, const Features& features) {
     drawLine(points);
 }
 
+/* Method used for motion blur debug where at a set amount of points a triangle will be drawn
+    to show the movement of the motion blur
+*/
 void drawMotionMeshAtTime(Scene scene, const Features& features)
 {
     const double period = 5.0;
@@ -152,7 +142,7 @@ void drawMotionMeshAtTime(Scene scene, const Features& features)
         s.center -= 2 * t * (1 - t) * (p1) + t * t * (p2);
     }
     for (float i = 0; i < features.extra.motionblurSamples; i++) {
-        t = i / (float)(features.extra.motionblurSamples - 1);
+        t = (i+1) / (float)(features.extra.motionblurSamples);
         for (Mesh& m : scene.meshes) {
             for (Vertex& v : m.vertices) {
                 v.position += 2 * t * (1 - t) * (p1) + t * t * (p2);
@@ -171,7 +161,9 @@ void drawMotionMeshAtTime(Scene scene, const Features& features)
         }
     }
 }
-
+/* 
+    Method that calls drawMovementLine for each vertex of each traingle and for each center of each sphere    
+*/
 void drawMotionblurPath(Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
 {
     drawMotionMeshAtTime(scene, features);
@@ -196,14 +188,10 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
-    //Scene scene2 = updateScene(scene, features);
-    //BVH bvh2 = BVH(scene2, features);
     Features features2 = features;
     features2.numPixelSamples = features.extra.motionblurSamples;
     for (int y = 0; y < screen.resolution().y; y++) {
         for (int x = 0; x != screen.resolution().x; x++) {
-            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
-            // Note; we seed the sampler for consistenct behavior across frames
             Sampler sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) };
             RenderState state = {
                 .scene = scene,
