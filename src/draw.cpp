@@ -112,6 +112,20 @@ void drawSphere(const Sphere& sphere)
     glPopAttrib();
 }
 
+void drawSphereMotion(const Sphere& sphere)
+{
+    if (!enableDebugDraw)
+        return;
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(1.f, 1.f, 1.f, .5f);
+    setMaterial(sphere.material);
+    drawSphereInternal(sphere.center, sphere.radius);
+    glDisable(GL_BLEND);
+    glPopAttrib();
+}
+
 void drawSphere(const glm::vec3& center, float radius, const glm::vec3& color /*= glm::vec3(1.0f)*/)
 {
     glPushAttrib(GL_ALL_ATTRIB_BITS);

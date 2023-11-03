@@ -156,7 +156,7 @@ void drawMotionMeshAtTime(Scene scene, const Features& features)
         }
         for (Sphere& s : scene.spheres) {
             s.center += 2 * t * (1 - t) * (p1) + t * t * (p2);
-            drawSphere(s);
+            drawSphereMotion(s);
             s.center -= 2 * t * (1 - t) * (p1) + t * t * (p2);
         }
     }
