@@ -183,7 +183,6 @@ void drawMotionblurPath(Scene& scene, const BVHInterface& bvh, const Features& f
     for (Sphere& s : scene.spheres) {
         drawMovementLine(s.center, features);
     }
-    // drawLine()
 }
 
 // TODO; Extra feature
@@ -197,8 +196,8 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
-    Scene scene2 = updateScene(scene, features);
-    BVH bvh2 = BVH(scene2, features);
+    //Scene scene2 = updateScene(scene, features);
+    //BVH bvh2 = BVH(scene2, features);
     Features features2 = features;
     features2.numPixelSamples = features.extra.motionblurSamples;
     for (int y = 0; y < screen.resolution().y; y++) {
@@ -207,7 +206,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
             // Note; we seed the sampler for consistenct behavior across frames
             Sampler sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) };
             RenderState state = {
-                .scene = scene2,
+                .scene = scene,
                 .features = features2,
                 .bvh = bvh,
                 .sampler = sampler
@@ -223,108 +222,6 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
         }
     }
 }
-
-//void drawMotionMeshAtTime(Scene scene, const Features& features) {
-//    const double period = 5.0;
-//    auto currentTime = std::chrono::high_resolution_clock::now();
-//    auto duration = currentTime.time_since_epoch();
-//    double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
-//    float t = (float)fmod(seconds / period, 1.0);
-//    glm::vec3 p1 = { features.extra.bezierOffset1x, features.extra.bezierOffset1y, features.extra.bezierOffset1z };
-//    glm::vec3 p2 = { features.extra.bezierOffset2x, features.extra.bezierOffset2y, features.extra.bezierOffset2z };
-//    for (Mesh& m : scene.meshes) {
-//        for (Vertex& v : m.vertices) {
-//            v.position += 2 * t * (1 - t) * (p1) + t * t * (p2);
-//        }
-//        for (glm::uvec3 triangle : m.triangles) {
-//            drawTriangle(m.vertices[triangle.x], m.vertices[triangle.y], m.vertices[triangle.z]);
-//        }
-//        for (Vertex& v : m.vertices) {
-//            v.position -= 2 * t * (1 - t) * (p1) + t * t * (p2);
-//        }
-//    }
-//    for (Sphere& s : scene.spheres) {
-//        s.center += 2 * t * (1 - t) * (p1) + t * t * (p2);
-//        drawSphere(s);
-//        s.center -= 2 * t * (1 - t) * (p1) + t * t * (p2);
-//    }
-//    for (int i = 0; i < features.extra.keyFrames;i++) {
-//        t = 1.f / features.extra.keyFrames * (i+.5); 
-//        for (Mesh& m : scene.meshes) {
-//            for (Vertex& v : m.vertices) {
-//                v.position += 2 * t * (1 - t) * (p1) + t * t * (p2);
-//            }
-//            for (glm::uvec3 triangle : m.triangles) {
-//                drawTriangleMotion(m.vertices[triangle.x], m.vertices[triangle.y], m.vertices[triangle.z]);
-//            }
-//            for (Vertex& v : m.vertices) {
-//                v.position -= 2 * t * (1 - t) * (p1) + t * t * (p2);
-//            }
-//        }
-//        for (Sphere& s : scene.spheres) {
-//            s.center += 2 * t * (1 - t) * (p1) + t * t * (p2);
-//            drawSphere(s);
-//            s.center -= 2 * t * (1 - t) * (p1) + t * t * (p2);
-//        }
-//    }
-//}
-//
-//void drawMotionblurPath(Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
-//{
-//    drawMotionMeshAtTime(scene, features);
-//    for (Mesh& m : scene.meshes) {
-//        for (Vertex& v : m.vertices) {
-//            drawMovementLine(v.position, features);
-//        }
-//    }
-//    for (Sphere& s : scene.spheres) {
-//        drawMovementLine(s.center, features);
-//    }
-//    //drawLine()
-//}
-//
-//
-//// TODO; Extra feature
-//// Given the same input as for `renderImage()`, instead render an image with your own implementation
-//// of motion blur. Here, you integrate over a time domain, and not just the pixel's image domain,
-//// to give objects the appearance of "fast movement".
-//// This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
-//// not go on a hunting expedition for your implementation, so please keep it here!
-//void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, const Features& features, const Trackball& camera, Screen& screen)
-//{
-//    if (!features.extra.enableMotionBlur) {
-//        return;
-//    }
-//    Scene scene2 = updateScene(scene,features);
-//    BVH bvh2 = BVH(scene2, features);
-//    Features features2 = features;
-//    int numSamples = features2.numPixelSamples;
-//    features2.numPixelSamples *= features.extra.keyFrames;
-//    for (int y = 0; y < screen.resolution().y; y++) {
-//        for (int x = 0; x != screen.resolution().x; x++) {
-//            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
-//            // Note; we seed the sampler for consistenct behavior across frames
-//            Sampler sampler = {static_cast<uint32_t>(screen.resolution().y * x + y)};
-//            RenderState state = {
-//                .scene = scene2,
-//                .features = features2,
-//                .bvh = bvh,
-//                .sampler = sampler
-//            };
-//            auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
-//            int count = 0;
-//            for (Ray& r : rays) {
-//                if (count % numSamples == 0) {
-//                    r.time = 1.f / (features.extra.keyFrames) * (count / numSamples + .5); 
-//                }
-//                r.time = 1.f / (features.extra.keyFrames) * (count / numSamples + .5 + (sampler.next_1d() * 2.f - 1.f)); 
-//                count++;
-//            }
-//            auto L = renderRays(state, rays);
-//            screen.setPixel(x, y, L);
-//        }
-//    }
-//}
 
 // Bloom helper functions
 double factorial(int n)
