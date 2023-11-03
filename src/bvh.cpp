@@ -304,6 +304,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         }
 
     } else {
+<<<<<<< HEAD
         if (state.features.extra.enableMotionBlur) { // check if motionblur is enabled
             glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
             glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
@@ -311,6 +312,17 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
                 float time = ray.time;
                 // add bezier offset to each point and call intersectRayWithTriangle
                 if (intersectRayWithTriangle(((1.f - ray.time) * (1.f - ray.time)) * prim.v0.position + 2 * ray.time * (1 - ray.time) * (prim.v0.position + p1) + ray.time * ray.time * p2, ((1.f - ray.time) * (1.f - ray.time)) * prim.v1.position + 2 * ray.time * (1 - ray.time) * (prim.v1.position + p1) + ray.time * ray.time * (prim.v1.position + p2), ((1.f - ray.time) * (1.f - ray.time)) * prim.v2.position + 2 * ray.time * (1 - ray.time) * (prim.v2.position + p1) + ray.time * ray.time * (prim.v2.position + p2), ray, hitInfo)) {
+=======
+        // Naive implementation; simply iterates over all primitives
+        for (const auto& prim : primitives) {
+            /* addition for motion blur*/
+            if (state.features.extra.enableMotionBlur && state.scene.meshes[prim.meshID].moveable) {
+                auto [v0, v1, v2] = std::make_tuple(prim.v0, prim.v1, prim.v2);
+                v0.position = ((1.f - ray.time) * (1.f - ray.time)) * v0.position + 2 * ray.time * (1 - ray.time) * (v0.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v0.position + state.scene.meshes[prim.meshID].p2);
+                v1.position = ((1.f - ray.time) * (1.f - ray.time)) * v1.position + 2 * ray.time * (1 - ray.time) * (v1.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v1.position + state.scene.meshes[prim.meshID].p2);
+                v2.position = ((1.f - ray.time) * (1.f - ray.time)) * v2.position + 2 * ray.time * (1 - ray.time) * (v2.position + state.scene.meshes[prim.meshID].p1) + ray.time * ray.time * (v2.position + state.scene.meshes[prim.meshID].p2);
+                if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
+>>>>>>> main
                     updateHitInfo(state, prim, ray, hitInfo);
                     is_hit = true;
                 }
@@ -332,6 +344,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
 
     // Intersect with spheres.
     for (const auto& sphere : state.scene.spheres) {
+<<<<<<< HEAD
         if (state.features.extra.enableMotionBlur) { // check if sphere should move
             glm::vec3 p1 = { state.features.extra.bezierOffset1x, state.features.extra.bezierOffset1y, state.features.extra.bezierOffset1z };
             glm::vec3 p2 = { state.features.extra.bezierOffset2x, state.features.extra.bezierOffset2y, state.features.extra.bezierOffset2z };
@@ -339,8 +352,14 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
             // add bezier offset
             s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + p1) + ray.time * ray.time * (sphere.center + p2);
             is_hit |= intersectRayWithShape(s, ray, hitInfo);     
+=======
+        if (state.features.extra.enableMotionBlur && sphere.moveable) {
+            Sphere s = sphere;
+            s.center = ((1.f - ray.time) * (1.f - ray.time)) * sphere.center + 2 * ray.time * (1 - ray.time) * (sphere.center + sphere.p1) + ray.time * ray.time * (sphere.center + sphere.p2);
+            is_hit |= intersectRayWithShape(s, ray, hitInfo);
+>>>>>>> main
         } else {
-            is_hit |= intersectRayWithShape(sphere, ray, hitInfo); 
+            is_hit |= intersectRayWithShape(sphere, ray, hitInfo);
         }
     }
 
@@ -484,16 +503,9 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     const uint32_t leftIdx = nextNodeIdx();
     const uint32_t rightIdx = nextNodeIdx();
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftIdx, rightIdx);
-    //    if (primitives.size() < 10) {
-    //        std::cout << "axis: " << axis << std::endl;
-    //        for (Primitive p : primitives) {
-    //            std::cout << (computePrimitiveCentroid(p)).x << ", " << (computePrimitiveCentroid(p)).y << ", " << (computePrimitiveCentroid(p)).z << std::endl;
-    //        }
-    //    }
 
     auto Rspan = primitives.subspan(splitIndex, primitives.size() - splitIndex);
     auto Lspan = primitives.subspan(0, splitIndex);
-    //    std::cout << "T: " << primitives.size() << " L: " << Lspan.size() << " R: " << Rspan.size() << std::endl;
 
     buildRecursive(scene, features, Rspan, rightIdx);
     buildRecursive(scene, features, Lspan, leftIdx);
@@ -545,7 +557,6 @@ void BVH::buildNumLeaves()
 // You are free to modify this function's signature.
 void BVH::debugDrawLevel(int level)
 {
-    // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
     // colors, transparencies, etc.
     std::queue<uint32_t> childQueue {};
@@ -581,7 +592,6 @@ void BVH::debugDrawLevel(int level)
 // You are free to modify this function's signature.
 void BVH::debugDrawLeaf(int leafIndex)
 {
-    // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use drawTriangle (see `draw.h`) to draw the contained primitives
     auto index = (uint32_t)leafIndex;
     if (leafIndex < 0 || index > m_numLeaves)
