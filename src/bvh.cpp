@@ -535,3 +535,16 @@ void BVH::debugDrawLeaf(int leafIndex)
         drawTriangle(p.v0, p.v1, p.v2);
     }
 }
+
+void BVH::debugDrawNodeSAH(int nodeIndex)
+{
+    Node& targetNode = m_nodes[nodeIndex];
+
+    if (!targetNode.isLeaf()) {
+        Node& leftChild = m_nodes[targetNode.data[0]];
+        Node& rightChild = m_nodes[targetNode.data[1]];
+        drawAABB(targetNode.aabb, DrawMode::Wireframe, glm::vec3(0.0f, 1.0f, 0.0f), 1.0f);
+        drawAABB(leftChild.aabb, DrawMode::Wireframe, glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
+        drawAABB(rightChild.aabb, DrawMode::Wireframe, glm::vec3(0.0f, 0.0f, 1.0f), 1.0f);
+    }
+}

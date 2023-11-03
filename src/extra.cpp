@@ -9,6 +9,7 @@
 #include "draw.h"
 #include <vector>
 
+bool debugGlossyReflection = { false };
 // DONE; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
 // of Depth of Field. Here, you generate camera rays s.t. a focus point and a thin lens camera model
@@ -321,13 +322,18 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
         glm::vec2 sample = state.sampler.next_2d();
         float radius = diskRadius * std::sqrt(sample.y);
         float angle = 2.0f * glm::pi<float>() * sample.x;
-        glm::vec3 rs = glm::normalize(r + u* radius* std::cos(angle) + v* radius* std::sin(angle));
+        glm::vec2 pointOnCircle = glm::vec2(glm::cos(angle)*radius, glm::sin(angle)*radius);
+        glm::vec3 rs = glm::normalize(r + u*pointOnCircle.x + v*pointOnCircle.y);
         if (glm::dot(n, rs) > 0.0f) {
             Ray glossyRay = Ray(intersectionPoint + 0.001f * rs, rs);
-            ac += renderRay(state, glossyRay, rayDepth + 1);
+            glm::vec3 temp = renderRay(state, glossyRay, rayDepth + 1) * hitInfo.material.ks;
+            ac += temp;
+            if (state.features.extra.showGlossy) {
+                drawRay(glossyRay, temp);
+            }
         }
     }
-    hitColor += ac * hitInfo.material.ks;
+    hitColor += ac / static_cast<float> (numSamples);
 }
 
 // TODO; Extra feature
@@ -485,7 +491,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
         }
     }
 
-    if (bestSplitIndex == 0 || bestSplitIndex == 15)
+    if (bestSplitIndex == 0 || bestSplitIndex == numBins-1)
 		return splitPrimitivesByMedian(aabb,axis,primitives);
     return bins[bestSplitIndex].leftCount;
 }

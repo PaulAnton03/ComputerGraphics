@@ -75,10 +75,12 @@ int main(int argc, char** argv)
         Scene scene = loadScenePrebuilt(sceneType, config.dataPath);
         BVH bvh(scene, config.features);
 
+        int bvhDebugSahNode = 0;
         int bvhDebugLevel = 0;
         int bvhDebugLeaf = 0;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
+        bool debugSAH { false };
 
         bool debugFocusDistance { false };
 
@@ -287,6 +289,10 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Draw BVH Leaf", &debugBVHLeaf);
                 if (debugBVHLeaf)
                     ImGui::SliderInt("BVH Leaf", &bvhDebugLeaf, 1, bvh.numLeaves());
+                ImGui::Checkbox("Draw Sah", &debugSAH);
+                if (debugSAH)
+                    ImGui::SliderInt("BVH Sah level", &bvhDebugSahNode, 0, bvh.nodes().size() - 1);
+                ImGui::Checkbox("Draw Glossy", &config.features.extra.showGlossy);
                 ImGui::Checkbox("Draw Focus Distance", &debugFocusDistance);
                 ImGui::Checkbox("Draw Motionblur Paths", &motionblurDebug);
             }
@@ -426,7 +432,7 @@ int main(int argc, char** argv)
 
                 drawLightsOpenGL(scene, camera, selectedLightIdx);
 
-                if (debugBVHLevel || debugBVHLeaf || debugFocusDistance || motionblurDebug) {
+                if (debugBVHLevel || debugBVHLeaf || debugFocusDistance || motionblurDebug || debugSAH) {
                     glPushAttrib(GL_ALL_ATTRIB_BITS);
                     setOpenGLMatrices(camera);
                     glDisable(GL_LIGHTING);
@@ -441,6 +447,8 @@ int main(int argc, char** argv)
                         bvh.debugDrawLevel(bvhDebugLevel);
                     if (debugBVHLeaf)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
+                    if (debugSAH)
+                        bvh.debugDrawNodeSAH(bvhDebugSahNode);
                     if (debugFocusDistance)
                         DOFDebugDrawFocusPoint(scene, bvh, config.features, camera);
                     if (motionblurDebug)

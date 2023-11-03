@@ -72,6 +72,7 @@ struct ExtraFeatures {
     bool enableGlossyReflection = false;
     bool enableMipmapTextureFiltering = false;
     bool enableMotionBlur = false;
+    bool showGlossy = false;
 
     //parameters for bloom
     float bloomThreshold = 0.9f;

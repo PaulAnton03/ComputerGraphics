@@ -87,10 +87,16 @@ glm::vec3 computePhongModel(RenderState& state, const glm::vec3& cameraDirection
     glm::vec3 l = glm::normalize(lightDirection);
     glm::vec3 v = glm::normalize(cameraDirection);
     glm::vec3 r = glm::normalize(2.0f * glm::dot(normal, l) * normal - l);
-    float cosD = glm::max(0.0f, glm::dot(normal, l));
-    if (cosD == 0.0f) {
-		return glm::vec3(0.0f);
-	}
+    float cosD;
+    if (state.features.enableTransparency && hitInfo.material.transparency<1.0f)
+    {
+        cosD = glm::abs(glm::dot(normal, l));
+    } else {
+        cosD = glm::max(0.0f, glm::dot(normal, l));
+        if (cosD == 0.0f) {
+                return glm::vec3(0.0f);
+        }
+    }
     float cosS = glm::max(0.0f, glm::dot(v, r));
     glm::vec3 diffuse = kd * lightColor * cosD;
     glm::vec3 specular = ks * lightColor * glm::pow(cosS, n);
@@ -121,9 +127,14 @@ glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDire
     glm::vec3 l = glm::normalize(lightDirection);
     glm::vec3 v = glm::normalize(cameraDirection);
     glm::vec3 h = glm::normalize((l + v) / glm::length((l + v)));
-    float cosD = glm::max(0.0f, glm::dot(normal, l));
-    if (cosD == 0.0f) {
-        return glm::vec3(0.0f);
+    float cosD;
+    if (state.features.enableTransparency && hitInfo.material.transparency < 1.0f) {
+        cosD = glm::abs(glm::dot(normal, l));
+    } else {
+        cosD = glm::max(0.0f, glm::dot(normal, l));
+        if (cosD == 0.0f) {
+                return glm::vec3(0.0f);
+        }
     }
     float cosS = glm::max(0.0f, glm::dot(normal, h));
     glm::vec3 diffuse = kd * lightColor * cosD;
@@ -194,7 +205,12 @@ glm::vec3 LinearGradient::sample(float ti) const
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeLinearGradientModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo, const LinearGradient& gradient)
 {
-    float cos = glm::max(0.0f,glm::dot(glm::normalize(lightDirection), glm::normalize(hitInfo.normal)));
+    float cos;
+    if (state.features.enableTransparency && hitInfo.material.transparency < 1.0f) {
+                cos = glm::abs(glm::dot(glm::normalize(lightDirection), glm::normalize(hitInfo.normal)));
+    } else {
+                cos = glm::max(0.0f, glm::dot(glm::normalize(lightDirection), glm::normalize(hitInfo.normal)));
+    }
     glm::vec3 diffuseColor = gradient.sample(cos);
     return diffuseColor * lightColor * cos;
 }
