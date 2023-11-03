@@ -394,15 +394,23 @@ int main(int argc, char** argv)
                 selectedLightIdx = -1;
             }
 
-            if (&config.features.extra.enableMotionBlur) {
-                if (config.features.extra.refitAABB && newBVHNeeded) {
-                    bvh = BVH(scene, config.features);
-                    newBVHNeeded = false;
+            if (config.features.extra.enableMotionBlur) {
+                if (config.features.extra.refitAABB) {
+                    if (newBVHNeeded) {
+                        bvh = BVH(scene, config.features);
+                        newBVHNeeded = false;
+                    }
+                    previousBezierP1 = glm::vec3 { 0 };
+                    previousBezierP2 = glm::vec3 { 0 };
                 }
-                if (previousBezierP1.x != config.features.extra.bezierOffset1x || previousBezierP1.y != config.features.extra.bezierOffset1y || previousBezierP1.z != config.features.extra.bezierOffset1z || previousBezierP2.x != config.features.extra.bezierOffset2x || previousBezierP2.y != config.features.extra.bezierOffset2y || previousBezierP2.z != config.features.extra.bezierOffset2z) {
+                else if(previousBezierP1.x != config.features.extra.bezierOffset1x || previousBezierP1.y != config.features.extra.bezierOffset1y || previousBezierP1.z != config.features.extra.bezierOffset1z || previousBezierP2.x != config.features.extra.bezierOffset2x || previousBezierP2.y != config.features.extra.bezierOffset2y || previousBezierP2.z != config.features.extra.bezierOffset2z)
+                {
                     bvh = BVH(scene, config.features);
+                    previousBezierP1 = glm::vec3 { config.features.extra.bezierOffset1x, config.features.extra.bezierOffset1y, config.features.extra.bezierOffset1z };
+                    previousBezierP2 = glm::vec3 { config.features.extra.bezierOffset2x, config.features.extra.bezierOffset2y, config.features.extra.bezierOffset2z };
                     newBVHNeeded = true;
-                }       
+                }    
+                    
             } else {
                 previousBezierP1 = glm::vec3 { 0 };
                 previousBezierP2 = glm::vec3 { 0 };
