@@ -101,17 +101,15 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
 {
     glm::vec3 intersectionPoint = ray.origin + ray.t * glm::normalize(ray.direction);
     Ray lightRay;
-    lightRay.origin = lightPosition;
-    lightRay.direction = glm::normalize(intersectionPoint - lightPosition);
+    lightRay.origin = intersectionPoint;
+    lightRay.direction = glm::normalize(lightPosition-intersectionPoint);
+    lightRay.origin+=lightRay.direction*bias;
     float t = glm::length(intersectionPoint - lightPosition);
     HitInfo shadowHitInfo;
     glm::vec3 shadowedLightColor = lightColor;
-    while (state.bvh.intersect(state, lightRay, shadowHitInfo)&&lightRay.t<t+bias) {
+    while (state.bvh.intersect(state, lightRay, shadowHitInfo)&&lightRay.t<t) {
         float trans = shadowHitInfo.material.transparency;
-        if (trans < bias) {
-            return glm::vec3(0);
-        }
-        shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * trans;           
+        shadowedLightColor = shadowedLightColor * sampleMaterialKd(state, shadowHitInfo) * (1-trans);           
         lightRay.origin = lightRay.origin + (lightRay.t + bias) * lightRay.direction;
         t -= lightRay.t;
         lightRay.t = std::numeric_limits<float>::max();

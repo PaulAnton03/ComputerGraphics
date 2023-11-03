@@ -114,6 +114,7 @@ public: // Visual debug
     // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
     // You are free to modify this function's signature.
     void debugDrawLeaf(int leafIndex);
+    void debugDrawNodeSAH(int nodeIndex);
 
 public: // Public getters
     // Accessors to underlying data
